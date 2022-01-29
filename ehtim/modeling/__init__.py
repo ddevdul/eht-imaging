@@ -6,4 +6,4 @@
 .. moduleauthor:: Michael Johnson (mjohnson@cfa.harvard.edu)
 
 """
-from ..const_def import *
+

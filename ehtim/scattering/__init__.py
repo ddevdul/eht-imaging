@@ -6,6 +6,3 @@
 .. moduleauthor:: Michael Johnson (mjohnson@cfa.harvard.edu)
 
 """
-
-from .stochastic_optics import *
-from ..const_def import *

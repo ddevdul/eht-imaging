@@ -6,4 +6,3 @@
 .. moduleauthor:: Chi-kwan Chan (chanc@email.arizona.edu)
 
 """
-from . import test_io

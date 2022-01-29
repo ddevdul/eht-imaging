@@ -6,6 +6,4 @@
 .. moduleauthor:: Andrew Chael (achael@cfa.harvard.edu)
 
 """
-from . import rex
 
-from ..const_def import *

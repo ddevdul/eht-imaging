@@ -6,4 +6,4 @@
 .. moduleauthor:: Andrew Chael (achael@cfa.harvard.edu)
 
 """
-from ..const_def import *
+
