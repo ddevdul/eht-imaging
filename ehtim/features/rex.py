@@ -1,53 +1,45 @@
-# rex.py
-# ring fitting code for ehtim
-#
-#    Copyright (C) 2019 Andrew Chael
-#
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+Ring fitting code for ehtim
 
-from __future__ import division
-from __future__ import print_function
+   Copyright (C) 2022 Andrew Chael
 
-from builtins import str
-from builtins import range
-from builtins import object
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
+import sys
 import os
 import glob
 import matplotlib.pyplot as plt
 import numpy as np
-import astropy.io.fits as fits
 import subprocess
-
 import scipy.interpolate
 import scipy.optimize
 import scipy.stats
+import parloop
+from astropy.io import fits
 from astropy.stats import median_absolute_deviation
-
 from ehtim.image import load_image
-import ehtim.imaging.dynamical_imaging as di
-import ehtim.parloop as ploop
-import ehtim.const_def as ehc
+sys.path.extend(["../imaging"])
+from imaging import dynamical_imaging
+import const_def
 
-###################################################################################################
 # Parameters
-###################################################################################################
 
 EP = 1.e-16
 BIG = 1./EP
 
-IMSIZE = 160*ehc.RADPERUAS  # 250*ehc.RADPERUAS  # FOV of resampled image (muas)
+IMSIZE = 160 * const_def.RADPERUAS  # 250*const_def.RADPERUAS  # FOV of resampled image (muas)
 NPIX = 160  # 128             # pixels in resampled image
 
 NRAYS = 360       # number of angular rays in final profile
@@ -68,10 +60,6 @@ NORMFLUX = 1      # normalized image flux for outputted profiles (Jy)
 
 POSTPROCDIR = '.'  # default postprocessing directory
 
-###################################################################################################
-# Profiles class
-###################################################################################################
-
 
 class Profiles(object):
 
@@ -85,13 +73,13 @@ class Profiles(object):
         self.rmax = rmax
 
         # store the center image
-        deltay = -(im.fovy()/2. - y0*ehc.RADPERUAS)/im.psize
-        deltax = (im.fovx()/2. - x0*ehc.RADPERUAS)/im.psize
+        deltay = -(im.fovy()/2. - y0*const_def.RADPERUAS)/im.psize
+        deltax = (im.fovx()/2. - x0*const_def.RADPERUAS)/im.psize
         self.im_center = im.shift([int(np.round(deltay)), int(np.round(deltax))])
 
         # total flux and normalization
         self.flux = im.total_flux()
-        self.parea = (im.psize/ehc.RADPERUAS)**2
+        self.parea = (im.psize/const_def.RADPERUAS)**2
 
         # factor to convert to normalized brightness temperature (total flux of 1 Jy)
         self.flux_norm = flux_norm
@@ -101,8 +89,8 @@ class Profiles(object):
         factor = 3.254e13/(im.rf**2 * im.psize**2)  # factor to convert to brightness temperature
         self.imarr = im.imvec.reshape(im.ydim, im.xdim)[::-1] * factor  # in Tb
 
-        self.xs = np.arange(im.xdim)*im.psize/ehc.RADPERUAS
-        self.ys = np.arange(im.ydim)*im.psize/ehc.RADPERUAS
+        self.xs = np.arange(im.xdim)*im.psize/const_def.RADPERUAS
+        self.ys = np.arange(im.ydim)*im.psize/const_def.RADPERUAS
         self.interp = scipy.interpolate.interp2d(self.ys, self.xs, self.imarr, kind='cubic')
 
         self.profiles = np.array(profs)
@@ -238,12 +226,12 @@ class Profiles(object):
         mask_outer = self.im.copy()
         immask = self.im.copy()
 
-        x0_c = self.im.fovx()/2. - self.x0*ehc.RADPERUAS
-        y0_c = self.y0*ehc.RADPERUAS - self.im.fovy()/2.
+        x0_c = self.im.fovx()/2. - self.x0*const_def.RADPERUAS
+        y0_c = self.y0*const_def.RADPERUAS - self.im.fovy()/2.
 
         # mask annulus
-        rad_inner = (self.RingSize1[0]/2. - self.RingWidth[0]/2.)*ehc.RADPERUAS
-        rad_outer = (self.RingSize1[0]/2. + self.RingWidth[0]/2.)*ehc.RADPERUAS
+        rad_inner = (self.RingSize1[0]/2. - self.RingWidth[0]/2.)*const_def.RADPERUAS
+        rad_outer = (self.RingSize1[0]/2. + self.RingWidth[0]/2.)*const_def.RADPERUAS
 
         mask_inner.imvec *= 0
         mask_outer.imvec *= 0
@@ -336,9 +324,9 @@ class Profiles(object):
         mask = self.im.copy()
         immask = self.im.copy()
 
-        x0_c = mask.fovx()/2. - self.x0*ehc.RADPERUAS
-        y0_c = self.y0*ehc.RADPERUAS - mask.fovy()/2.
-        rad = self.RingSize1[0]*ehc.RADPERUAS
+        x0_c = mask.fovx()/2. - self.x0*const_def.RADPERUAS
+        y0_c = self.y0*const_def.RADPERUAS - mask.fovy()/2.
+        rad = self.RingSize1[0]*const_def.RADPERUAS
 
         mask.imvec *= 0
         mask = mask.add_gauss(1, [2*rad, 2*rad, 0, x0_c, y0_c])
@@ -517,7 +505,7 @@ class Profiles(object):
         hdulist = fits.HDUList(hdulist)
         hdulist.writeto(fname, overwrite=True)
 
-    def plot_profs(self, postprocdir=POSTPROCDIR, save_png=False, colors=ehc.SCOLORS):
+    def plot_profs(self, postprocdir=POSTPROCDIR, save_png=False, colors=const_def.SCOLORS):
         plt.figure()
         plt.xlabel(r"distance from center ($\mu$as)")
         plt.ylabel(r"$T_{\rm b}$")
@@ -637,19 +625,19 @@ class Profiles(object):
 
     def plot_meanprof_theta(self, postprocdir=POSTPROCDIR, save_png=False, color='k'):
         fig = plt.figure()
-        plt.plot(self.thetas/ehc.DEGREE, self.meanprof_theta,
+        plt.plot(self.thetas/const_def.DEGREE, self.meanprof_theta,
                  color=color, linestyle='-', linewidth=1)
 
-        ang1 = self.RingAngle1[0]/ehc.DEGREE
-        std1 = self.RingAngle1[1]/ehc.DEGREE
+        ang1 = self.RingAngle1[0]/const_def.DEGREE
+        std1 = self.RingAngle1[1]/const_def.DEGREE
         up = np.mod(ang1+std1, 360)
         down = np.mod(ang1-std1, 360)
         plt.axvline(x=ang1, color='b', linewidth=1)
         plt.axvline(x=up, color='b', linewidth=1, linestyle='--')
         plt.axvline(x=down, color='b', linewidth=1, linestyle='--')
 
-        ang2 = self.RingAngle2[0]/ehc.DEGREE
-        std2 = self.RingAngle2[1]/ehc.DEGREE
+        ang2 = self.RingAngle2[0]/const_def.DEGREE
+        std2 = self.RingAngle2[1]/const_def.DEGREE
         up = np.mod(ang2+std2, 360)
         down = np.mod(ang2-std2, 360)
         plt.axvline(x=ang2, color='r', linewidth=1)
@@ -701,8 +689,8 @@ def compute_ring_profile(im, x0, y0, title="",
 
     factor = 3.254e13/(im.rf**2 * im.psize**2)  # convert to brightness temperature
     imarr = im.imvec.reshape(im.ydim, im.xdim)[::-1] * factor  # in brightness temperature K
-    xs = np.arange(im.xdim)*im.psize/ehc.RADPERUAS
-    ys = np.arange(im.ydim)*im.psize/ehc.RADPERUAS
+    xs = np.arange(im.xdim)*im.psize/const_def.RADPERUAS
+    ys = np.arange(im.ydim)*im.psize/const_def.RADPERUAS
 
     # TODO: test fiducial images with linear?
     interp = scipy.interpolate.interp2d(ys, xs, imarr, kind='cubic')
@@ -776,8 +764,8 @@ def findCenter(im,
             J = np.abs(std/mean)
             return J
 
-    fovx = im.fovx()/ehc.RADPERUAS
-    fovy = im.fovy()/ehc.RADPERUAS
+    fovx = im.fovx()/const_def.RADPERUAS
+    fovy = im.fovy()/const_def.RADPERUAS
 
     # brute force search + fmin finisher to find
     fovmin_x = (.5-fov_search) * fovx
@@ -808,17 +796,17 @@ def FindProfileSingle(imname, postprocdir,
         return -1
 
     # print("nrays",nrays_search,"nrs",nrs_search,"fov",fov_search)
-    with ploop.HiddenPrints():
+    with parloop.HiddenPrints():
 
         im_raw = load_image(imname, aipscc=aipscc)
 
         # blur image if requested
         if blur > 0:
-            im_raw = im_raw.blur_circ(blur*ehc.RADPERUAS, blur*ehc.RADPERUAS)
+            im_raw = im_raw.blur_circ(blur*const_def.RADPERUAS, blur*const_def.RADPERUAS)
 
         # center image and regrid to uniform pixel size and fox
         if center:
-            im = di.center_core(im_raw) # TODO -- why isn't this working? 
+            im = dynamical_imaging.center_core(im_raw) # TODO -- why isn't this working? 
         else:
             im = im_raw
 
@@ -827,12 +815,12 @@ def FindProfileSingle(imname, postprocdir,
 
         # blur image if requested
         # if blur > 0:
-        #    im_search = im_search.blur_circ(blur*ehc.RADPERUAS)
-        #    im = im.blur_circ(blur*ehc.RADPERUAS)
+        #    im_search = im_search.blur_circ(blur*const_def.RADPERUAS)
+        #    im = im.blur_circ(blur*const_def.RADPERUAS)
 
         # blur and threshold image FOR SEARCH ONLY
         # if blur==0:
-        #    im_search = im.blur_circ(BLUR_VALUE_MIN*ehc.RADPERUAS)
+        #    im_search = im.blur_circ(BLUR_VALUE_MIN*const_def.RADPERUAS)
         # else:
         #    im_search = im.copy()
 
@@ -984,6 +972,6 @@ def FindProfiles(foldername, postprocdir, processes=-1,
                 thresh_search, fov_search, n_search, flux_norm]
                for i in range(len(imlist))]
 
-    parloop = ploop.Parloop(FindProfileSingle)
+    parloop = parloop.Parloop(FindProfileSingle)
     pplist = parloop.run_loop(arglist, processes)
     return pplist
