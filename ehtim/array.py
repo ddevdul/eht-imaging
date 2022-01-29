@@ -20,7 +20,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import numpy
 from ehtim.observing import obs_simulate  # as simobs
 from ehtim.io import save, load # ehtim.io.load ehtim.io.save
-from  ehtim import const_def # as ehc
+from ehtim import const_def # as ehc
+from ehtim.obsdata import Obsdata
 
 
 class Array:
@@ -70,45 +71,33 @@ class Array:
                         bls.append([sort_tarr[i], sort_tarr[j]])
         return bls
 
-    def obsdata(self, ra, dec, rf, bw, tint, tadv, tstart, tstop,
-                mjd=ehc.MJD_DEFAULT, timetype='UTC', polrep='stokes',
-                elevmin=ehc.ELEV_LOW, elevmax=ehc.ELEV_HIGH,
-                tau=ehc.TAUDEF, fix_theta_GMST=False):
-        """Generate u,v points and baseline uncertainties.
-
-           Args:
-               ra (float): the source right ascension in fractional hours
-               dec (float): the source declination in fractional degrees
-               tint (float): the scan integration time in seconds
-               tadv (float): the uniform cadence between scans in seconds
-               tstart (float): the start time of the observation in hours
-               tstop (float): the end time of the observation in hours
-               mjd (int): the mjd of the observation
-               timetype (str): how to interpret tstart and tstop; either 'GMST' or 'UTC'
-               polrep (str): polarization representation, either 'stokes' or 'circ'
-               elevmin (float): station minimum elevation in degrees
-               elevmax (float): station maximum elevation in degrees
-               tau (float): the base opacity at all sites, or a dict giving one opacity per site
-
-           Returns:
-               Obsdata: an observation object with no data
-
+    def obsdata(self, **kwargs) -> Obsdata:
         """
-
-        obsarr = simobs.make_uvpoints(self, ra, dec, rf, bw,
-                                      tint, tadv, tstart, tstop,
-                                      mjd=mjd, polrep=polrep, tau=tau,
-                                      elevmin=elevmin, elevmax=elevmax,
-                                      timetype=timetype, fix_theta_GMST=fix_theta_GMST)
-
-        uniquetimes = np.sort(np.unique(obsarr['time']))
-        scans = np.array([[time - 0.5 * tadv, time + 0.5 * tadv] for time in uniquetimes])
-        source = str(ra) + ":" + str(dec)
-        obs = ehtim.obsdata.Obsdata(ra, dec, rf, bw, obsarr, self.tarr,
-                                    source=source, mjd=mjd, timetype=timetype, polrep=polrep,
-                                    ampcal=True, phasecal=True, opacitycal=True,
-                                    dcal=True, frcal=True,
-                                    scantable=scans)
+        Generate u,v points and baseline uncertainties.
+        Required Keyword Arguements:
+            ra (float): the source right ascension in fractional hours
+            dec (float): the source declination in fractional degrees
+            tint (float): the scan integration time in seconds
+            tadv (float): the uniform cadence between scans in seconds
+            tstart (float): the start time of the observation in hours
+            tstop (float): the end time of the observation in hours
+            mjd (int): the mjd of the observation
+            timetype (str): how to interpret tstart and tstop; either 'GMST' or 'UTC'
+            polrep (str): polarization representation, either 'stokes' or 'circ'
+            elevmin (float): station minimum elevation in degrees
+            elevmax (float): station maximum elevation in degrees
+            tau (float): the base opacity at all sites, or a dict giving one opacity per site
+        returns:
+            Obsdata: an observation object with no data
+        """
+        obsarr = obs_simulate.make_uvpoints(self, **kwargs)
+        uniquetimes = numpy.sort(numpy.unique(obsarr['time']))
+        scans = numpy.array([[time - 0.5 * kwargs["tadv"], time + 0.5 * kwargs["tadv"]] for time in uniquetimes])
+        source = str(kwargs["ra"]) + ":" + str(kwargs["dec"])
+        obs = Obsdata(obsarr, self.tarr, source=source,
+                                    ampcal=True, phasecal=True, 
+                                    opacitycal=True, dcal=True, frcal=True,
+                                    scantable=scans, **kwargs)
         return obs
 
     def make_subarray(self, sites):
