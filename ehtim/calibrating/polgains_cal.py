@@ -1,45 +1,35 @@
-# polgains_cal.py
-# functions for calibrating RCP-LCP phase offsets
-#
-#    Copyright (C) 2019 Maciek Wielgus (maciek.wielgus(at)gmail.com)
-#
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+Functions for calibrating RCP-LCP phase offsets
 
+Copyright (C) 2022 Maciek Wielgus (maciek.wielgus(at)gmail.com)
 
-from __future__ import division
-from __future__ import print_function
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-from builtins import str
-from builtins import range
-from builtins import object
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
-import numpy as np
-import scipy.optimize as opt
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
+import sys
 import time
 import copy
+import numpy as np
+import scipy.optimize
+sys.path.extend(["../", "./observing"])
+import obsdata
+import parloop
+from observing import obs_helpers
+import const_def
 from multiprocessing import cpu_count, Pool
 
-import ehtim.obsdata
-import ehtim.parloop as parloop
-import ehtim.observing.obs_helpers as obsh
-import ehtim.const_def as ehc
-
 MAXIT = 5000
-
-###################################################################################################
-# Polarimetric-Phase-Gains-Calibration
-###################################################################################################
 
 
 def polgains_cal(obs, reference='AA', sites=[], method='phase', minimizer_method='BFGS', pad_amp=0.,
@@ -119,7 +109,7 @@ def polgains_cal(obs, reference='AA', sites=[], method='phase', minimizer_method
 
     else:  # without multiprocessing
         for i in range(len(scans)):
-            obsh.prog_msg(i, len(scans), msgtype=msgtype, nscan_last=i - 1)
+            obs_helpers.prog_msg(i, len(scans), msgtype=msgtype, nscan_last=i - 1)
             scans_cal[i] = polgains_cal_scan(scans[i], reference, sites,
                                              method=method, minimizer_method=minimizer_method,
                                              show_solution=show_solution, caltable=caltable,
@@ -189,8 +179,8 @@ def polgains_cal_scan(scan, reference='AA', sites=[], method='phase', minimizer_
            (Obsdata): the calibrated observation, if caltable==False
            (Caltable): the derived calibration table, if caltable==True
     """
-    indices_no_vis_nans = (~np.isnan(scan[ehc.vis_poldict['RR']])) & (
-        ~np.isnan(scan[ehc.vis_poldict['LL']]))
+    indices_no_vis_nans = (~np.isnan(scan[const_def.vis_poldict['RR']])) & (
+        ~np.isnan(scan[const_def.vis_poldict['LL']]))
     scan_no_vis_nans = scan[indices_no_vis_nans]
     allsites_no_vis_nans = list(set(np.hstack((scan_no_vis_nans['t1'], scan_no_vis_nans['t2']))))
 
@@ -221,10 +211,10 @@ def polgains_cal_scan(scan, reference='AA', sites=[], method='phase', minimizer_
             g2_keys.append(-1)
 
     # get scan visibilities of the specified polarization
-    visRR = scan_no_vis_nans[ehc.vis_poldict['RR']]
-    visLL = scan_no_vis_nans[ehc.vis_poldict['LL']]
-    sigmaRR = scan_no_vis_nans[ehc.sig_poldict['RR']]
-    sigmaLL = scan_no_vis_nans[ehc.sig_poldict['LL']]
+    visRR = scan_no_vis_nans[const_def.vis_poldict['RR']]
+    visLL = scan_no_vis_nans[const_def.vis_poldict['LL']]
+    sigmaRR = scan_no_vis_nans[const_def.sig_poldict['RR']]
+    sigmaLL = scan_no_vis_nans[const_def.sig_poldict['LL']]
     sigma = np.sqrt(sigmaRR**2 + sigmaLL**2)
     # sigma_inv = 1.0/np.sqrt(sigma**2 + (pad_amp*0.5*(np.abs(visRR)+np.abs(visLL)))**2)
     # initial guesses for parameters
@@ -246,7 +236,7 @@ def polgains_cal_scan(scan, reference='AA', sites=[], method='phase', minimizer_
     if np.max(g1_keys) > -1 or np.max(g2_keys) > -1:
         # run the minimizer to get a solution (but only run if there's at least one gain to fit)
         optdict = {'maxiter': MAXIT}  # minimizer params
-        res = opt.minimize(errfunc, gpar_guess, method=minimizer_method, options=optdict)
+        res = scipy.optimize.minimize(errfunc, gpar_guess, method=minimizer_method, options=optdict)
 
         # get solution
         g_fit = res.x.view(np.complex128)
@@ -273,7 +263,7 @@ def polgains_cal_scan(scan, reference='AA', sites=[], method='phase', minimizer_
             rscale = g_fit[site_key]**-1
             lscale = 1. + 0.j
 
-            caldict[site] = np.array((scan['time'][0], rscale, lscale), dtype=ehc.DTCAL)
+            caldict[site] = np.array((scan['time'][0], rscale, lscale), dtype=const_def.DTCAL)
         out = caldict
     else:
         g1_fit = g_fit[g1_keys]
@@ -305,7 +295,7 @@ def get_polgains_scan_cal2(i, n, scan, reference, sites, method, pad_amp, caltab
     if n > 1:
         global counter
         counter.increment()
-        obsh.prog_msg(counter.value(), counter.maxval, msgtype, counter.value() - 1)
+        obs_helpers.prog_msg(counter.value(), counter.maxval, msgtype, counter.value() - 1)
 
     return polgains_cal_scan(scan, reference, sites,
                              method=method, caltable=caltable, show_solution=show_solution,
