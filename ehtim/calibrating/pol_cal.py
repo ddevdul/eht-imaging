@@ -1,44 +1,33 @@
-# pol_cal.py
-# functions for polarimetric-calibration
-#
-#    Copyright (C) 2018 Andrew Chael
-#
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+Functions for polarimetric-calibration
 
+Copyright (C) 2022 Andrew Chael
 
-from __future__ import division
-from __future__ import print_function
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-from builtins import str
-from builtins import range
-from builtins import object
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
-import numpy as np
-import scipy.optimize as opt
-import matplotlib.pyplot as plt
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
+import sys
 import time
-
-import ehtim.imaging.imager_utils as iu
-import ehtim.observing.obs_simulate as simobs
-import ehtim.const_def as ehc
+import numpy as np
+import scipy.optimize
+import matplotlib.pyplot as plt
+sys.path.extend(["../imaging", "../observing", "../"])
+from imaging import imager_utils
+from observing import obs_simulate
+import const_def
 
 MAXIT = 1000  # maximum number of iterations in pol-cal minimizer
-
-###################################################################################################
-# Polarimetric Calibration
-###################################################################################################
-
 
 def leakage_cal(obs, im=None, sites=[], leakage_tol=.1, pol_fit=['RL', 'LR'], dtype='vis',
                 const_fpol=False, inverse=False,  minimizer_method='L-BFGS-B',
@@ -89,7 +78,7 @@ def leakage_cal(obs, im=None, sites=[], leakage_tol=.1, pol_fit=['RL', 'LR'], dt
     # Check to see if the field rotation is corrected
     if obs_test.frcal is False:
         print("Field rotation angles have not been corrected. Correcting now...")
-        obs_test.data = simobs.apply_jones_inverse(obs_test, frcal=False, dcal=True, verbose=False)
+        obs_test.data = obs_simulate.apply_jones_inverse(obs_test, frcal=False, dcal=True, verbose=False)
         obs_test.frcal = True
 
     # List of all sites present in the observation
@@ -111,13 +100,13 @@ def leakage_cal(obs, im=None, sites=[], leakage_tol=.1, pol_fit=['RL', 'LR'], dt
     site_index = [list(obs.tarr['site']).index(s) for s in sites]
 
     if not const_fpol:
-        (dataRR, sigmaRR, ARR) = iu.chisqdata(obs, im_circ, mask=mask, dtype=dtype, pol='RR',
+        (dataRR, sigmaRR, ARR) = imager_utils.chisqdata(obs, im_circ, mask=mask, dtype=dtype, pol='RR',
                                               ttype=ttype, fft_pad_factor=fft_pad_factor)
-        (dataLL, sigmaLL, ALL) = iu.chisqdata(obs, im_circ, mask=mask, dtype=dtype, pol='LL',
+        (dataLL, sigmaLL, ALL) = imager_utils.chisqdata(obs, im_circ, mask=mask, dtype=dtype, pol='LL',
                                               ttype=ttype, fft_pad_factor=fft_pad_factor)
-        (dataRL, sigmaRL, ARL) = iu.chisqdata(obs, im_circ, mask=mask, dtype=dtype, pol='RL',
+        (dataRL, sigmaRL, ARL) = imager_utils.chisqdata(obs, im_circ, mask=mask, dtype=dtype, pol='RL',
                                               ttype=ttype, fft_pad_factor=fft_pad_factor)
-        (dataLR, sigmaLR, ALR) = iu.chisqdata(obs, im_circ, mask=mask, dtype=dtype, pol='LR',
+        (dataLR, sigmaLR, ALR) = imager_utils.chisqdata(obs, im_circ, mask=mask, dtype=dtype, pol='LR',
                                               ttype=ttype, fft_pad_factor=fft_pad_factor)
 
     # If inverse modeling, pre-compute field rotation angles
@@ -191,19 +180,19 @@ def leakage_cal(obs, im=None, sites=[], leakage_tol=.1, pol_fit=['RL', 'LR'], dt
         else:
             chisq_RR = chisq_LL = chisq_RL = chisq_LR = 0.0
             if 'RR' in pol_fit:
-                chisq_RR = iu.chisq(im.rrvec, ARR,
+                chisq_RR = imager_utils.chisq(im.rrvec, ARR,
                                     obs_test.unpack_dat(data, ['rr' + dtype])['rr' + dtype],
                                     data['rrsigma'], dtype=dtype, ttype=ttype, mask=mask)
             if 'LL' in pol_fit:
-                chisq_LL = iu.chisq(im.llvec, ALL,
+                chisq_LL = imager_utils.chisq(im.llvec, ALL,
                                     obs_test.unpack_dat(data, ['ll' + dtype])['ll' + dtype],
                                     data['llsigma'], dtype=dtype, ttype=ttype, mask=mask)
             if 'RL' in pol_fit:
-                chisq_RL = iu.chisq(im.rlvec, ARL,
+                chisq_RL = imager_utils.chisq(im.rlvec, ARL,
                                     obs_test.unpack_dat(data, ['rl' + dtype])['rl' + dtype],
                                     data['rlsigma'], dtype=dtype, ttype=ttype, mask=mask)
             if 'LR' in pol_fit:
-                chisq_LR = iu.chisq(im.lrvec, ALR,
+                chisq_LR = imager_utils.chisq(im.lrvec, ALR,
                                     obs_test.unpack_dat(data, ['lr' + dtype])['lr' + dtype],
                                     data['lrsigma'], dtype=dtype, ttype=ttype, mask=mask)
             return (chisq_RR + chisq_LL + chisq_RL + chisq_LR)/len(pol_fit)
@@ -218,7 +207,7 @@ def leakage_cal(obs, im=None, sites=[], leakage_tol=.1, pol_fit=['RL', 'LR'], dt
             for isite in range(len(sites)):
                 obs_test.tarr['dr'][site_index[isite]] = D[2*isite]
                 obs_test.tarr['dl'][site_index[isite]] = D[2*isite+1]
-            data = simobs.apply_jones_inverse(obs_test, dcal=False, verbose=False)
+            data = obs_simulate.apply_jones_inverse(obs_test, dcal=False, verbose=False)
         else:
             data = obs.data
 
@@ -234,7 +223,7 @@ def leakage_cal(obs, im=None, sites=[], leakage_tol=.1, pol_fit=['RL', 'LR'], dt
     optdict = {'maxiter': MAXIT}  # minimizer params
     Dpar_guess = np.zeros((len(sites) + const_fpol*2)*2, dtype=np.complex128).view(dtype=np.float64)
     print("Minimizing...")
-    res = opt.minimize(errfunc, Dpar_guess, method=minimizer_method, options=optdict)
+    res = scipy.optimize.minimize(errfunc, Dpar_guess, method=minimizer_method, options=optdict)
 
     # get solution
     D_fit = res.x.astype(np.float64).view(dtype=np.complex128)  # all the D-terms (complex)
@@ -243,7 +232,7 @@ def leakage_cal(obs, im=None, sites=[], leakage_tol=.1, pol_fit=['RL', 'LR'], dt
     for isite in range(len(sites)):
         obs_test.tarr['dr'][site_index[isite]] = D_fit[2*isite]
         obs_test.tarr['dl'][site_index[isite]] = D_fit[2*isite+1]
-    obs_test.data = simobs.apply_jones_inverse(obs_test, dcal=False, verbose=False)
+    obs_test.data = obs_simulate.apply_jones_inverse(obs_test, dcal=False, verbose=False)
     obs_test.dcal = True
 
     # Re-populate any additional leakage terms that were present
@@ -292,7 +281,7 @@ def leakage_cal(obs, im=None, sites=[], leakage_tol=.1, pol_fit=['RL', 'LR'], dt
                 obs_test.tarr['dr'][i_site] = D_fit[2*isite]
                 obs_test.tarr['dl'][i_site] = D_fit[2*isite+1]
 
-        obs_test.data = simobs.apply_jones_inverse(obs_test, dcal=False, verbose=False)
+        obs_test.data = obs_simulate.apply_jones_inverse(obs_test, dcal=False, verbose=False)
         obs_test.dcal = True
 
         # Copy in the remaining D-terms that were there before
@@ -344,7 +333,7 @@ def plot_leakage(obs, sites=[], axis=False, rangex=False, rangey=False,
         mask = [t in sites for t in tarr['site']]
         tarr = tarr[mask]
 
-    clist = ehc.SCOLORS
+    clist = const_def.SCOLORS
 
     # make plot(s)
     if axis:
