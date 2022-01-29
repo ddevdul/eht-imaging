@@ -1,49 +1,37 @@
-# selfcal.py
-# functions for self-calibration
-#
-#    Copyright (C) 2018 Andrew Chael
-#
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+Functions for self-calibration
 
+Copyright (C) 2022 Andrew Chael
 
-from __future__ import division
-from __future__ import print_function
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-from builtins import str
-from builtins import range
-from builtins import object
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
-import numpy as np
-import scipy.optimize as opt
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
+import sys
 import time
 import copy
-from multiprocessing import cpu_count, Pool
-
-import ehtim.obsdata
-import ehtim.parloop as parloop
-from . import cal_helpers as calh
-import ehtim.observing.obs_helpers as obsh
-import ehtim.const_def as ehc
-
+import numpy as np
+import const_def
 import warnings
+import scipy.optimize
+sys.path.extend(["../"])
+import obsdata
+import parloop
+from observing import obs_helpers
+from multiprocessing import cpu_count, Pool
 warnings.filterwarnings("ignore", message="divide by zero encountered in log")
 
 MAXIT = 10000  # maximum number of iterations in self-cal minimizer
-
-###################################################################################################
-# Self-Calibration
-###################################################################################################
 
 
 def self_cal(obs, im, sites=[], method="both", pol='I', minimizer_method='BFGS',
@@ -112,7 +100,7 @@ def self_cal(obs, im, sites=[], method="both", pol='I', minimizer_method='BFGS',
     scans_cal = copy.copy(scans)
 
     # Partition the list of model visibilities into scans
-    V_scans = [o[ehc.vis_poldict[pol]] for o in obs_clean.tlist(
+    V_scans = [o[const_def.vis_poldict[pol]] for o in obs_clean.tlist(
         t_gather=solution_interval, scan_gather=scan_solutions)]
 
     # Make the pool for parallel processing
@@ -141,7 +129,7 @@ def self_cal(obs, im, sites=[], method="both", pol='I', minimizer_method='BFGS',
 
     else:  # run on a single core
         for i in range(len(scans)):
-            obsh.prog_msg(i, len(scans), msgtype=msgtype, nscan_last=i - 1)
+            obs_helpers.prog_msg(i, len(scans), msgtype=msgtype, nscan_last=i - 1)
             scans_cal[i] = self_cal_scan(scans[i], im, V_scan=V_scans[i], sites=sites,
                                          polrep=obs.polrep, pol=pol,
                                          method=method, minimizer_method=minimizer_method,
@@ -174,7 +162,7 @@ def self_cal(obs, im, sites=[], method="both", pol='I', minimizer_method='BFGS',
     else:  # return a calibrated observation
         arglist, argdict = obs.obsdata_args()
         arglist[4] = np.concatenate(scans_cal)
-        out = ehtim.obsdata.Obsdata(*arglist, **argdict)
+        out = obsdata.Obsdata(*arglist, **argdict)
         if copy_closure_tables:
             out.camp = obs.camp
             out.logcamp = obs.logcamp
@@ -225,7 +213,7 @@ def self_cal_scan(scan, im, V_scan=[], sites=[], polrep='stokes', pol='I', metho
     if len(V_scan) < 1:
         # This is not correct. Need to update to use polarization dictionary
         uv = np.hstack((scan['u'].reshape(-1, 1), scan['v'].reshape(-1, 1)))
-        A = obsh.ftmatrix(im.psize, im.xdim, im.ydim, uv, pulse=im.pulse)
+        A = obs_helpers.ftmatrix(im.psize, im.xdim, im.ydim, uv, pulse=im.pulse)
         V_scan = np.dot(A, im.imvec)
 
     # convert gain tolerance to lookup table if needed
@@ -258,12 +246,12 @@ def self_cal_scan(scan, im, V_scan=[], sites=[], polrep='stokes', pol='I', metho
         return scan
 
     # get scan visibilities of the specified polarization
-    vis = scan[ehc.vis_poldict[pol]]
-    sigma = scan[ehc.sig_poldict[pol]]
+    vis = scan[const_def.vis_poldict[pol]]
+    sigma = scan[const_def.sig_poldict[pol]]
 
     if method == 'amp':
         if debias:
-            vis = obsh.amp_debias(np.abs(vis), np.abs(sigma))
+            vis = obs_helpers.amp_debias(np.abs(vis), np.abs(sigma))
         else:
             vis = np.abs(vis)
 
@@ -312,7 +300,7 @@ def self_cal_scan(scan, im, V_scan=[], sites=[], polrep='stokes', pol='I', metho
 
     # use gradient descent to find the gains
     optdict = {'maxiter': MAXIT}  # minimizer params
-    res = opt.minimize(errfunc, gpar_guess, method=minimizer_method, options=optdict)
+    res = scipy.optimize.minimize(errfunc, gpar_guess, method=minimizer_method, options=optdict)
 
     # save the solution
     g_fit = res.x.view(np.complex128)
@@ -345,7 +333,7 @@ def self_cal_scan(scan, im, V_scan=[], sites=[], polrep='stokes', pol='I', metho
 
             # TODO: we may want to give two entries for the start/stop times
             # when a non-zero interval is used
-            caldict[site] = np.array((scan['time'][0], rscale, lscale), dtype=ehc.DTCAL)
+            caldict[site] = np.array((scan['time'][0], rscale, lscale), dtype=const_def.DTCAL)
 
         out = caldict
 
@@ -389,7 +377,7 @@ def get_selfcal_scan_cal2(i, n, scan, im, V_scan, sites, polrep, pol, method, mi
     if n > 1:
         global counter
         counter.increment()
-        obsh.prog_msg(counter.value(), counter.maxval, msgtype, counter.value() - 1)
+        obs_helpers.prog_msg(counter.value(), counter.maxval, msgtype, counter.value() - 1)
 
     return self_cal_scan(scan, im, V_scan=V_scan, sites=sites, polrep=polrep, pol=pol,
                          method=method, minimizer_method=minimizer_method,
