@@ -54,19 +54,20 @@ class Array:
                     raise Exception('Wrong ephemeris format for site {sitename} !')
             array_indicies[self.tarr[i]['site']] = i
 
-    def listbls(self) -> numpy.array:
+    def listbls(self) -> numpy.array[list]:
         """
         List all baselines.
-        Returns:
-            numpy.array : array of baselines
+        returns:
+            numpy.array : array of baselines in a
         """
-        bls = []
-        for i1 in sorted(self.tarr['site']):
-            for i2 in sorted(self.tarr['site']):
-                if not ([i1, i2] in bls) and not ([i2, i1] in bls) and i1 != i2:
-                    bls.append([i1, i2])
-        bls = np.array(bls)
-
+        sort_tarr = sorted(self.tarr["site"])
+        bls = list()
+        for i, _ in enumerate(sort_tarr):
+            for j in range((i+1), len(sort_tarr)):
+                if sort_tarr[i] != sort_tarr[j]:
+                    if ([sort_tarr[i], sort_tarr[j]] not in bls and
+                        [sort_tarr[j], sort_tarr[i]] not in bls):
+                        bls.append([sort_tarr[i], sort_tarr[j]])
         return bls
 
     def obsdata(self, ra, dec, rf, bw, tint, tadv, tstart, tstop,
