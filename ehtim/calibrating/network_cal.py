@@ -1,40 +1,35 @@
-# network_cal.py
-# functions for network-calibration
-#
-#    Copyright (C) 2018 Andrew Chael
-#
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+functions for network-calibration
 
+   Copyright (C) 2022 Andrew Chael
 
-from __future__ import division
-from __future__ import print_function
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-from builtins import str
-from builtins import range
-from builtins import object
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-import numpy as np
-import scipy.optimize as opt
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
+import sys
+sys.path.extend(["../"])
 import time
 import copy
+import numpy as np
+import scipy.optimize
+import obsdata
+import parloop
+import cal_helpers
+import const_def
+import caltable
+from observing import obs_helpers
 from multiprocessing import cpu_count, Pool
-
-import ehtim.obsdata
-import ehtim.parloop as parloop
-from . import cal_helpers as calh
-import ehtim.observing.obs_helpers as obsh
-import ehtim.const_def as ehc
 
 ZBLCUTOFF = 1.e7
 MAXIT = 5000
@@ -98,7 +93,7 @@ def network_cal(obs, zbl, sites=[], zbl_uvdist_max=ZBLCUTOFF, method="amp", mini
         sites = obs.tarr['site']
 
     # find colocated sites and put into list allclusters
-    cluster_data = calh.make_cluster_data(obs, zbl_uvdist_max)
+    cluster_data = cal_helpers.make_cluster_data(obs, zbl_uvdist_max)
 
     # get scans
     scans = obs.tlist(t_gather=solution_interval, scan_gather=scan_solutions)
@@ -133,7 +128,7 @@ def network_cal(obs, zbl, sites=[], zbl_uvdist_max=ZBLCUTOFF, method="amp", mini
                               ])
     else:  # without multiprocessing
         for i in range(len(scans)):
-            obsh.prog_msg(i, len(scans), msgtype=msgtype, nscan_last=i - 1)
+            obs_helpers.prog_msg(i, len(scans), msgtype=msgtype, nscan_last=i - 1)
             scans_cal[i] = network_cal_scan(scans[i], zbl, sites, cluster_data,
                                             polrep=obs.polrep, pol=pol,
                                             method=method, minimizer_method=minimizer_method,
@@ -162,14 +157,14 @@ def network_cal(obs, zbl, sites=[], zbl_uvdist_max=ZBLCUTOFF, method="amp", mini
                 except KeyError:
                     caldict[site] = [dat]
 
-        caltable = ehtim.caltable.Caltable(obs.ra, obs.dec, obs.rf, obs.bw, caldict, obs.tarr,
+        caltable = caltable.Caltable(obs.ra, obs.dec, obs.rf, obs.bw, caldict, obs.tarr,
                                            source=obs.source, mjd=obs.mjd, timetype=obs.timetype)
         out = caltable
 
     else:  # return the calibrated observation
         arglist, argdict = obs.obsdata_args()
         arglist[4] = np.concatenate(scans_cal)
-        out = ehtim.obsdata.Obsdata(*arglist, **argdict)
+        out = obsdata.Obsdata(*arglist, **argdict)
 
     # close multiprocessing jobs
     if processes != -1:
@@ -284,16 +279,16 @@ def network_cal_scan(scan, zbl, sites, clustered_sites, polrep='stokes', pol='I'
 
     # get scan visibilities of the specified polarization
     if pol != 'RRLL':
-        vis = scan[ehc.vis_poldict[pol]]
-        sigma = scan[ehc.sig_poldict[pol]]
+        vis = scan[const_def.vis_poldict[pol]]
+        sigma = scan[const_def.sig_poldict[pol]]
     else:
-        vis = np.concatenate([scan[ehc.vis_poldict['RR']], scan[ehc.vis_poldict['LL']]])
-        sigma = np.concatenate([scan[ehc.sig_poldict['RR']], scan[ehc.sig_poldict['LL']]])
+        vis = np.concatenate([scan[const_def.vis_poldict['RR']], scan[const_def.vis_poldict['LL']]])
+        sigma = np.concatenate([scan[const_def.sig_poldict['RR']], scan[const_def.sig_poldict['LL']]])
         vis_mask = np.concatenate([vis_mask, vis_mask])
 
     if method == 'amp':
         if debias:
-            vis = obsh.amp_debias(np.abs(vis), np.abs(sigma))
+            vis = obs_helpers.amp_debias(np.abs(vis), np.abs(sigma))
         else:
             vis = np.abs(vis)
 
@@ -373,7 +368,7 @@ def network_cal_scan(scan, zbl, sites, clustered_sites, polrep='stokes', pol='I'
     if np.max(g1_keys) > -1 or np.max(g2_keys) > -1:
         # run the minimizer to get a solution (but only run if there's at least one gain to fit)
         optdict = {'maxiter': MAXIT}  # minimizer params
-        res = opt.minimize(errfunc, gvpar_guess, method=minimizer_method, options=optdict)
+        res = scipy.optimize.minimize(errfunc, gvpar_guess, method=minimizer_method, options=optdict)
 
         # get solution
         g_fit = res.x[0:2 * n_gains].view(np.complex128)
@@ -412,7 +407,7 @@ def network_cal_scan(scan, zbl, sites, clustered_sites, polrep='stokes', pol='I'
 
             # Note: we may want to give two entries for the start/stop times
             # when a non-zero solution interval is used
-            caldict[site] = np.array((scan['time'][0], rscale, lscale), dtype=ehc.DTCAL)
+            caldict[site] = np.array((scan['time'][0], rscale, lscale), dtype=const_def.DTCAL)
 
         out = caldict
 
@@ -456,7 +451,7 @@ def get_network_scan_cal2(i, n, scan, zbl, sites, cluster_data, polrep, pol,
     if n > 1:
         global counter
         counter.increment()
-        obsh.prog_msg(counter.value(), counter.maxval, msgtype, counter.value() - 1)
+        obs_helpers.prog_msg(counter.value(), counter.maxval, msgtype, counter.value() - 1)
 
     return network_cal_scan(scan, zbl, sites, cluster_data, polrep=polrep, pol=pol,
                             zbl_uvidst_max=ZBLCUTOFF, method=method, caltable=caltable,
