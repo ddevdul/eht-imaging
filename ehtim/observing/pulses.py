@@ -1,39 +1,30 @@
-# pulses.py
-# image restoring pulse functions
-#
-#    Copyright (C) 2018 Katie Bouman
-#
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+Image restoring pulse functions
 
-# If dom="I", we are in real space, if dom="F" we are in Fourier (uv) space
-# Coordinates in real space are in radian, coordinates in Fourier space are in lambda
+Copyright (C) 2022 Katie Bouman
 
-from __future__ import division
-from __future__ import print_function
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-from builtins import str
-from builtins import range
-from builtins import object
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+If dom="I", we are in real space, if dom="F" we are in Fourier (uv) space
+Coordinates in real space are in radian, coordinates in Fourier space are in lambda
+"""
 
 import math
 import numpy as np
-# import scipy.special as spec
 
-###################################################################################################
+
 # Delta Function  Pulse
-###################################################################################################
-
 
 def deltaPulse2D(x, y, pdim, dom='F'):
     if dom == 'I':
@@ -44,10 +35,7 @@ def deltaPulse2D(x, y, pdim, dom='F'):
     elif dom == 'F':
         return 1.0
 
-###################################################################################################
 # Square  Wave Pulse
-###################################################################################################
-
 
 def rectPulse2D(x, y, pdim, dom='F'):
     if dom == 'I':
