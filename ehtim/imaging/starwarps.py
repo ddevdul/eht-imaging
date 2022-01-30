@@ -1,31 +1,25 @@
-# See example_starwarps.py for an example of how to use these methods
-# Contact Katie Bouman (klbouman@mit.edu) for any questions 
-#
-# The methods/techniques used in this, referred to as StarWars, are described in 
-# "Reconstructing Video from Interferometric Measurements of Time-Varying Sources" 
-# by Katherine L. Bouman, Michael D. Johnson, Adrian V. Dalca, 
-# Andrew Chael, Freek Roelofs, Sheperd S. Doeleman, and William T. Freeman
+"""
+See example_starwarps.py for an example of how to use these methods
+Contact Katie Bouman (klbouman@mit.edu) for any questions 
 
-from __future__ import division
-from __future__ import print_function
+The methods/techniques used in this, referred to as StarWars, are described in 
+"Reconstructing Video from Interferometric Measurements of Time-Varying Sources" 
+by Katherine L. Bouman, Michael D. Johnson, Adrian V. Dalca, 
+Andrew Chael, Freek Roelofs, Sheperd S. Doeleman, and William T. Freeman
+"""
 
-import numpy as np
-#import ehtim as eh
-import ehtim.image as image
-import ehtim.observing.pulses
-from ehtim.observing.obs_helpers import *
-from ehtim.imaging.imager_utils import chisqdata
-
-import scipy.stats as st
+import sys
 import scipy
 import copy
-import sys
-
+import numpy as np
+sys.path.extend(["../", "../observing"])
+import image
+import observing.pulses
+from observing import obs_helpers
+from imager_utils import chisqdata
 import matplotlib.pyplot as plt
 
 PROPERROR = True
-
-##################################################################################################
 
 
 def solve_singleImage(mu, Lambda_orig, obs, measurement={'vis':1}, numLinIters=5, mask=[], normalize=False):
@@ -1395,7 +1389,7 @@ def cmpFreqExtraction_phaseWarp(obs, im_true, im_canonical, theta, centerTheta, 
     
     data = obs.unpack(['u','v','vis','sigma'])
     uv = np.hstack((data['u'].reshape(-1,1), data['v'].reshape(-1,1)))
-    A = ftmatrix(im_true.psize, im_true.xdim, im_true.ydim, uv, pulse=im_true.pulse)
+    A = obs_helpers.ftmatrix(im_true.psize, im_true.xdim, im_true.ydim, uv, pulse=im_true.pulse)
     
     shiftMtx_true = genPhaseShiftMtx_obs(obs, init_x, init_y, flowbasis_x, flowbasis_y, theta, im_canonical.psize, im_canonical.pulse)
     
@@ -1419,7 +1413,7 @@ def gkern(kernlen=21, nsig=3):
 
     interval = (2*nsig+1.)/(kernlen)
     x = np.linspace(-nsig-interval/2., nsig+interval/2., kernlen+1)
-    kern1d = np.diff(st.norm.cdf(x))
+    kern1d = np.diff(scipy.stats.norm.cdf(x))
     kernel_raw = np.sqrt(np.outer(kern1d, kern1d))
     kernel = kernel_raw/kernel_raw.sum()
     return kernel
