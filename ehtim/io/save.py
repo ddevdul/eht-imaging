@@ -1,44 +1,34 @@
-# save.py
-# functions to save observation & image data from files
-#
-#    Copyright (C) 2018 Andrew Chael
-#
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+Functions to save observation & image data from files
 
-from __future__ import division
-from __future__ import print_function
+Copyright (C) 2022 Andrew Chael
 
-from builtins import str
-from builtins import range
-from builtins import object
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-import numpy as np
-import astropy.io.fits as fits
-import datetime
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
+import sys
 import h5py
-
-import ehtim.io.writeoifits
-import ehtim.io.oifits
+import datetime
+import numpy as np
+from astropy.io import fits # as fits
+sys.path.extend(["../","../io"])
+import io
 from astropy.time import Time
+import const_def
+from observing import obs_helpers
 
-import ehtim.const_def as ehc
-import ehtim.observing.obs_helpers as obsh
-
-##################################################################################################
 # Image IO
-##################################################################################################
-
 
 def save_im_txt(im, fname, mjd=False, time=False):
     """Save image data to text file.
@@ -57,7 +47,7 @@ def save_im_txt(im, fname, mjd=False, time=False):
         im = im.switch_polrep(polrep_out='stokes', pol_prim_out=None)
 
     # Coordinate values
-    pdimas = im.psize/ehc.RADPERAS
+    pdimas = im.psize/const_def.RADPERAS
     xs = np.array([[j for j in range(im.xdim)] for i in range(im.ydim)]).reshape(im.xdim*im.ydim, 1)
     xs = pdimas * (xs[::-1] - im.xdim/2.0)
     ys = np.array([[i for j in range(im.xdim)] for i in range(im.ydim)]).reshape(im.xdim*im.ydim, 1)
@@ -99,7 +89,7 @@ def save_im_txt(im, fname, mjd=False, time=False):
     mjd += (time/24.)
 
     head = ("SRC: %s \n" % im.source +
-            "RA: " + obsh.rastring(im.ra) + "\n" + "DEC: " + obsh.decstring(im.dec) + "\n" +
+            "RA: " + obs_helpers.rastring(im.ra) + "\n" + "DEC: " + obs_helpers.decstring(im.dec) + "\n" +
             "MJD: %.6f \n" % (float(mjd)) +
             "RF: %.4f GHz \n" % (im.rf/1e9) +
             "FOVX: %i pix %f as \n" % (im.xdim, pdimas * im.xdim) +
@@ -132,8 +122,8 @@ def save_im_fits(im, fname, mjd=False, time=False):
     header['OBJECT'] = im.source
     header['CTYPE1'] = 'RA---SIN'
     header['CTYPE2'] = 'DEC--SIN'
-    header['CDELT1'] = -im.psize/ehc.DEGREE
-    header['CDELT2'] = im.psize/ehc.DEGREE
+    header['CDELT1'] = -im.psize/const_def.DEGREE
+    header['CDELT2'] = im.psize/const_def.DEGREE
     header['OBSRA'] = im.ra * 180/12.
     header['OBSDEC'] = im.dec
     header['FREQ'] = im.rf
@@ -350,7 +340,7 @@ def save_obs_txt(obs, fname):
         raise Exception("obs.polrep not 'stokes' or 'circ'!")
 
     head = ("SRC: %s \n" % obs.source +
-            "RA: " + obsh.rastring(obs.ra) + "\n" + "DEC: " + obsh.decstring(obs.dec) + "\n" +
+            "RA: " + obs_helpers.rastring(obs.ra) + "\n" + "DEC: " + obs_helpers.decstring(obs.dec) + "\n" +
             "MJD: %i \n" % obs.mjd +
             "RF: %.4f GHz \n" % (obs.rf/1e9) +
             "BW: %.4f GHz \n" % (obs.bw/1e9) +
@@ -874,7 +864,7 @@ def save_obs_oifits(obs, fname, flux=1.0):
 
     # create dictionary
     union = {}
-    union = ehtim.io.writeoifits.arrayUnion(antennaNames, union)
+    union = io.writeoifits.arrayUnion(antennaNames, union)
 
     # extract the integration time
     intTime = data['tint'][0]
@@ -889,8 +879,8 @@ def save_obs_oifits(obs, fname, flux=1.0):
     v = data['v']
 
     # convert antenna name strings to number identifiers
-    ant1 = ehtim.io.writeoifits.convertStrings(data['t1'], union)
-    ant2 = ehtim.io.writeoifits.convertStrings(data['t2'], union)
+    ant1 = io.writeoifits.convertStrings(data['t1'], union)
+    ant2 = io.writeoifits.convertStrings(data['t2'], union)
 
     # convert times to datetime objects
     # TODO: these do not correspond to the acutal times
@@ -914,13 +904,13 @@ def save_obs_oifits(obs, fname, flux=1.0):
                               for x in timeClosure])
 
     # convert antenna name strings to number identifiers
-    biarr_ant1 = ehtim.io.writeoifits.convertStrings(biarr['t1'], union)
-    biarr_ant2 = ehtim.io.writeoifits.convertStrings(biarr['t2'], union)
-    biarr_ant3 = ehtim.io.writeoifits.convertStrings(biarr['t3'], union)
+    biarr_ant1 = io.writeoifits.convertStrings(biarr['t1'], union)
+    biarr_ant2 = io.writeoifits.convertStrings(biarr['t2'], union)
+    biarr_ant3 = io.writeoifits.convertStrings(biarr['t3'], union)
     antOrder = np.transpose(np.array([biarr_ant1, biarr_ant2, biarr_ant3]))
 
     # todo: check that putting the negatives on the phase and t3phi is correct
-    ehtim.io.writeoifits.writeOIFITS(fname, obs.ra, obs.dec, obs.rf, obs.bw, intTime,
+    io.writeoifits.writeOIFITS(fname, obs.ra, obs.dec, obs.rf, obs.bw, intTime,
                                    amp, viserror, phase, viserror, u, v, ant1, ant2, dttime,
                                    t3amp, t3amperr, t3phi, t3phierr, uClosure, vClosure, antOrder,
                                    dttimeClosure, antennaNames, antennaDiam,
@@ -944,7 +934,7 @@ def save_dtype_txt(obs, fname, dtype='cphase'):
     """
 
     head = ("SRC: %s \n" % obs.source +
-            "RA: " + obsh.rastring(obs.ra) + "\n" + "DEC: " + obsh.decstring(obs.dec) + "\n" +
+            "RA: " + obs_helpers.rastring(obs.ra) + "\n" + "DEC: " + obs_helpers.decstring(obs.dec) + "\n" +
             "MJD: %i \n" % obs.mjd +
             "RF: %.4f GHz \n" % (obs.rf/1e9) +
             "BW: %.4f GHz \n" % (obs.bw/1e9) +
