@@ -1,37 +1,31 @@
-# imager_utils.py
-# General imager functions for total intensity VLBI data
-#
-#    Copyright (C) 2018 Andrew Chael
-#
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+General imager functions for total intensity VLBI data
 
+Copyright (C) 2022 Andrew Chael
 
-from __future__ import division
-from __future__ import print_function
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-from builtins import str
-from builtins import range
-from builtins import object
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
+import sys
 import time
 import numpy as np
 import scipy.optimize as opt
 import matplotlib.pyplot as plt
-
-import ehtim.image as image
-import ehtim.observing.obs_helpers as obsh
-import ehtim.const_def as ehc
+sys.path.extend(["../", "../observing"])
+import image
+from observing import obs_helpers
+import const_def
 
 
 ##################################################################################################
@@ -404,7 +398,7 @@ def chisq(imvec, A, data, sigma, dtype, ttype='direct', mask=None):
             imvec = embed(imvec, mask, randomfloor=True)
 
         if dtype not in ['cphase_diag', 'logcamp_diag']:
-            vis_arr = obsh.fft_imvec(imvec, A[0])
+            vis_arr =  obs_helpers.fft_imvec(imvec, A[0])
 
         if dtype == 'vis':
             chisq = chisq_vis_fft(vis_arr, A, data, sigma)
@@ -489,7 +483,7 @@ def chisqgrad(imvec, A, data, sigma, dtype, ttype='direct', mask=None):
             imvec = embed(imvec, mask, randomfloor=True)
 
         if dtype not in ['cphase_diag', 'logcamp_diag']:
-            vis_arr = obsh.fft_imvec(imvec, A[0])
+            vis_arr =  obs_helpers.fft_imvec(imvec, A[0])
 
         if dtype == 'vis':
             chisqgrad = chisqgrad_vis_fft(vis_arr, A, data, sigma)
@@ -797,8 +791,8 @@ def chisqgrad_bs(imvec, Amatrices, bis, sigma):
 
 def chisq_cphase(imvec, Amatrices, clphase, sigma):
     """Closure Phases (normalized) chi-squared"""
-    clphase = clphase * ehc.DEGREE
-    sigma = sigma * ehc.DEGREE
+    clphase = clphase * const_def.DEGREE
+    sigma = sigma * const_def.DEGREE
 
     i1 = np.dot(Amatrices[0], imvec)
     i2 = np.dot(Amatrices[1], imvec)
@@ -811,8 +805,8 @@ def chisq_cphase(imvec, Amatrices, clphase, sigma):
 
 def chisqgrad_cphase(imvec, Amatrices, clphase, sigma):
     """The gradient of the closure phase chi-squared"""
-    clphase = clphase * ehc.DEGREE
-    sigma = sigma * ehc.DEGREE
+    clphase = clphase * const_def.DEGREE
+    sigma = sigma * const_def.DEGREE
 
     i1 = np.dot(Amatrices[0], imvec)
     i2 = np.dot(Amatrices[1], imvec)
@@ -830,8 +824,8 @@ def chisqgrad_cphase(imvec, Amatrices, clphase, sigma):
 
 def chisq_cphase_diag(imvec, Amatrices, clphase_diag, sigma):
     """Diagonalized closure phases (normalized) chi-squared"""
-    clphase_diag = np.concatenate(clphase_diag) * ehc.DEGREE
-    sigma = np.concatenate(sigma) * ehc.DEGREE
+    clphase_diag = np.concatenate(clphase_diag) * const_def.DEGREE
+    sigma = np.concatenate(sigma) * const_def.DEGREE
 
     A3_diag = Amatrices[0]
     tform_mats = Amatrices[1]
@@ -851,8 +845,8 @@ def chisq_cphase_diag(imvec, Amatrices, clphase_diag, sigma):
 
 def chisqgrad_cphase_diag(imvec, Amatrices, clphase_diag, sigma):
     """The gradient of the diagonalized closure phase chi-squared"""
-    clphase_diag = clphase_diag * ehc.DEGREE
-    sigma = sigma * ehc.DEGREE
+    clphase_diag = clphase_diag * const_def.DEGREE
+    sigma = sigma * const_def.DEGREE
 
     A3_diag = Amatrices[0]
     tform_mats = Amatrices[1]
@@ -1053,7 +1047,7 @@ def chisq_vis_fft(vis_arr, A, vis, sigma):
     """
 
     im_info, sampler_info_list, gridder_info_list = A
-    samples = obsh.sampler(vis_arr, sampler_info_list, sample_type="vis")
+    samples =  obs_helpers.sampler(vis_arr, sampler_info_list, sample_type="vis")
 
     chisq = np.sum(np.abs((samples-vis)/sigma)**2)/(2*len(vis))
 
@@ -1068,11 +1062,11 @@ def chisqgrad_vis_fft(vis_arr, A, vis, sigma):
 
     # samples and gradient FT
     pulsefac = sampler_info_list[0].pulsefac
-    samples = obsh.sampler(vis_arr, sampler_info_list, sample_type="vis")
+    samples =  obs_helpers.sampler(vis_arr, sampler_info_list, sample_type="vis")
     wdiff_vec = (-1.0/len(vis)*(vis - samples)/(sigma**2)) * pulsefac.conj()
 
     # Setup and perform the inverse FFT
-    wdiff_arr = obsh.gridder([wdiff_vec], gridder_info_list)
+    wdiff_arr =  obs_helpers.gridder([wdiff_vec], gridder_info_list)
     grad_arr = np.fft.ifftshift(np.fft.ifft2(np.fft.fftshift(wdiff_arr)))
     grad_arr = grad_arr * (im_info.npad * im_info.npad)
 
@@ -1089,7 +1083,7 @@ def chisq_amp_fft(vis_arr, A, amp, sigma):
     """
 
     im_info, sampler_info_list, gridder_info_list = A
-    amp_samples = np.abs(obsh.sampler(vis_arr, sampler_info_list, sample_type="vis"))
+    amp_samples = np.abs( obs_helpers.sampler(vis_arr, sampler_info_list, sample_type="vis"))
     chisq = np.sum(np.abs((amp_samples-amp)/sigma)**2)/(len(amp))
     return chisq
 
@@ -1101,7 +1095,7 @@ def chisqgrad_amp_fft(vis_arr, A, amp, sigma):
     im_info, sampler_info_list, gridder_info_list = A
 
     # samples
-    samples = obsh.sampler(vis_arr, sampler_info_list, sample_type="vis")
+    samples =  obs_helpers.sampler(vis_arr, sampler_info_list, sample_type="vis")
     amp_samples = np.abs(samples)
 
     # gradient FT
@@ -1110,7 +1104,7 @@ def chisqgrad_amp_fft(vis_arr, A, amp, sigma):
                  (sigma**2) / samples.conj()) * pulsefac.conj()
 
     # Setup and perform the inverse FFT
-    wdiff_arr = obsh.gridder([wdiff_vec], gridder_info_list)
+    wdiff_arr =  obs_helpers.gridder([wdiff_vec], gridder_info_list)
     grad_arr = np.fft.ifftshift(np.fft.ifft2(np.fft.fftshift(wdiff_arr)))
     grad_arr = grad_arr * (im_info.npad * im_info.npad)
 
@@ -1126,7 +1120,7 @@ def chisq_bs_fft(vis_arr, A, bis, sigma):
     """Bispectrum chi-squared from fft"""
 
     im_info, sampler_info_list, gridder_info_list = A
-    bisamples = obsh.sampler(vis_arr, sampler_info_list, sample_type="bs")
+    bisamples =  obs_helpers.sampler(vis_arr, sampler_info_list, sample_type="bs")
 
     return np.sum(np.abs(((bis - bisamples)/sigma))**2)/(2.*len(bis))
 
@@ -1136,9 +1130,9 @@ def chisqgrad_bs_fft(vis_arr, A, bis, sigma):
     """
     im_info, sampler_info_list, gridder_info_list = A
 
-    v1 = obsh.sampler(vis_arr, [sampler_info_list[0]], sample_type="vis")
-    v2 = obsh.sampler(vis_arr, [sampler_info_list[1]], sample_type="vis")
-    v3 = obsh.sampler(vis_arr, [sampler_info_list[2]], sample_type="vis")
+    v1 =  obs_helpers.sampler(vis_arr, [sampler_info_list[0]], sample_type="vis")
+    v2 =  obs_helpers.sampler(vis_arr, [sampler_info_list[1]], sample_type="vis")
+    v3 =  obs_helpers.sampler(vis_arr, [sampler_info_list[2]], sample_type="vis")
     bisamples = v1*v2*v3
 
     wdiff = -1.0/len(bis)*(bis - bisamples)/(sigma**2)
@@ -1148,7 +1142,7 @@ def chisqgrad_bs_fft(vis_arr, A, bis, sigma):
     pt3 = wdiff * (v1 * v2).conj() * sampler_info_list[2].pulsefac.conj()
 
     # Setup and perform the inverse FFT
-    wdiff = obsh.gridder([pt1, pt2, pt3], gridder_info_list)
+    wdiff =  obs_helpers.gridder([pt1, pt2, pt3], gridder_info_list)
     grad_arr = np.fft.ifftshift(np.fft.ifft2(np.fft.fftshift(wdiff)))
     grad_arr = grad_arr * (im_info.npad * im_info.npad)
 
@@ -1163,11 +1157,11 @@ def chisq_cphase_fft(vis_arr, A, clphase, sigma):
     """Closure Phases (normalized) chi-squared from fft
     """
 
-    clphase = clphase * ehc.DEGREE
-    sigma = sigma * ehc.DEGREE
+    clphase = clphase * const_def.DEGREE
+    sigma = sigma * const_def.DEGREE
 
     im_info, sampler_info_list, gridder_info_list = A
-    clphase_samples = np.angle(obsh.sampler(vis_arr, sampler_info_list, sample_type="bs"))
+    clphase_samples = np.angle( obs_helpers.sampler(vis_arr, sampler_info_list, sample_type="bs"))
 
     chisq = (2.0/len(clphase)) * np.sum((1.0 - np.cos(clphase-clphase_samples))/(sigma**2))
     return chisq
@@ -1176,14 +1170,14 @@ def chisq_cphase_fft(vis_arr, A, clphase, sigma):
 def chisqgrad_cphase_fft(vis_arr, A, clphase, sigma):
     """The gradient of the closure phase chi-squared from fft"""
 
-    clphase = clphase * ehc.DEGREE
-    sigma = sigma * ehc.DEGREE
+    clphase = clphase * const_def.DEGREE
+    sigma = sigma * const_def.DEGREE
     im_info, sampler_info_list, gridder_info_list = A
 
     # sample visibilities and closure phases
-    v1 = obsh.sampler(vis_arr, [sampler_info_list[0]], sample_type="vis")
-    v2 = obsh.sampler(vis_arr, [sampler_info_list[1]], sample_type="vis")
-    v3 = obsh.sampler(vis_arr, [sampler_info_list[2]], sample_type="vis")
+    v1 =  obs_helpers.sampler(vis_arr, [sampler_info_list[0]], sample_type="vis")
+    v2 =  obs_helpers.sampler(vis_arr, [sampler_info_list[1]], sample_type="vis")
+    v3 =  obs_helpers.sampler(vis_arr, [sampler_info_list[2]], sample_type="vis")
     clphase_samples = np.angle(v1*v2*v3)
 
     pref = (2.0/len(clphase)) * np.sin(clphase - clphase_samples)/(sigma**2)
@@ -1192,7 +1186,7 @@ def chisqgrad_cphase_fft(vis_arr, A, clphase, sigma):
     pt3 = pref/v3.conj() * sampler_info_list[2].pulsefac.conj()
 
     # Setup and perform the inverse FFT
-    wdiff = obsh.gridder([pt1, pt2, pt3], gridder_info_list)
+    wdiff =  obs_helpers.gridder([pt1, pt2, pt3], gridder_info_list)
     grad_arr = np.fft.ifftshift(np.fft.ifft2(np.fft.fftshift(wdiff)))
     grad_arr = grad_arr * (im_info.npad * im_info.npad)
 
@@ -1208,15 +1202,15 @@ def chisq_cphase_diag_fft(imvec, A, clphase_diag, sigma):
     """Diagonalized closure phases (normalized) chi-squared from fft
     """
 
-    clphase_diag = np.concatenate(clphase_diag) * ehc.DEGREE
-    sigma = np.concatenate(sigma) * ehc.DEGREE
+    clphase_diag = np.concatenate(clphase_diag) * const_def.DEGREE
+    sigma = np.concatenate(sigma) * const_def.DEGREE
 
     A3 = A[0]
     tform_mats = A[1]
 
     im_info, sampler_info_list, gridder_info_list = A3
-    vis_arr = obsh.fft_imvec(imvec, A3[0])
-    clphase_samples = np.angle(obsh.sampler(vis_arr, sampler_info_list, sample_type="bs"))
+    vis_arr =  obs_helpers.fft_imvec(imvec, A3[0])
+    clphase_samples = np.angle( obs_helpers.sampler(vis_arr, sampler_info_list, sample_type="bs"))
 
     count = 0
     clphase_diag_samples = []
@@ -1235,19 +1229,19 @@ def chisq_cphase_diag_fft(imvec, A, clphase_diag, sigma):
 def chisqgrad_cphase_diag_fft(imvec, A, clphase_diag, sigma):
     """The gradient of the closure phase chi-squared from fft"""
 
-    clphase_diag = np.concatenate(clphase_diag) * ehc.DEGREE
-    sigma = np.concatenate(sigma) * ehc.DEGREE
+    clphase_diag = np.concatenate(clphase_diag) * const_def.DEGREE
+    sigma = np.concatenate(sigma) * const_def.DEGREE
 
     A3 = A[0]
     tform_mats = A[1]
 
     im_info, sampler_info_list, gridder_info_list = A3
-    vis_arr = obsh.fft_imvec(imvec, A3[0])
+    vis_arr =  obs_helpers.fft_imvec(imvec, A3[0])
 
     # sample visibilities and closure phases
-    v1 = obsh.sampler(vis_arr, [sampler_info_list[0]], sample_type="vis")
-    v2 = obsh.sampler(vis_arr, [sampler_info_list[1]], sample_type="vis")
-    v3 = obsh.sampler(vis_arr, [sampler_info_list[2]], sample_type="vis")
+    v1 =  obs_helpers.sampler(vis_arr, [sampler_info_list[0]], sample_type="vis")
+    v2 =  obs_helpers.sampler(vis_arr, [sampler_info_list[1]], sample_type="vis")
+    v3 =  obs_helpers.sampler(vis_arr, [sampler_info_list[2]], sample_type="vis")
     clphase_samples = np.angle(v1*v2*v3)
 
     # gradient vec stuff
@@ -1270,7 +1264,7 @@ def chisqgrad_cphase_diag_fft(imvec, A, clphase_diag, sigma):
     pt3 = pref/v3.conj() * sampler_info_list[2].pulsefac.conj()
 
     # Setup and perform the inverse FFT
-    wdiff = obsh.gridder([pt1, pt2, pt3], gridder_info_list)
+    wdiff =  obs_helpers.gridder([pt1, pt2, pt3], gridder_info_list)
     grad_arr = np.fft.ifftshift(np.fft.ifft2(np.fft.fftshift(wdiff)))
     grad_arr = grad_arr * (im_info.npad * im_info.npad)
 
@@ -1287,7 +1281,7 @@ def chisq_camp_fft(vis_arr, A, clamp, sigma):
     """
 
     im_info, sampler_info_list, gridder_info_list = A
-    clamp_samples = obsh.sampler(vis_arr, sampler_info_list, sample_type="camp")
+    clamp_samples =  obs_helpers.sampler(vis_arr, sampler_info_list, sample_type="camp")
     chisq = np.sum(np.abs((clamp - clamp_samples)/sigma)**2)/len(clamp)
     return chisq
 
@@ -1299,10 +1293,10 @@ def chisqgrad_camp_fft(vis_arr, A, clamp, sigma):
     im_info, sampler_info_list, gridder_info_list = A
 
     # sampled visibility and closure amplitudes
-    v1 = obsh.sampler(vis_arr, [sampler_info_list[0]], sample_type="vis")
-    v2 = obsh.sampler(vis_arr, [sampler_info_list[1]], sample_type="vis")
-    v3 = obsh.sampler(vis_arr, [sampler_info_list[2]], sample_type="vis")
-    v4 = obsh.sampler(vis_arr, [sampler_info_list[3]], sample_type="vis")
+    v1 =  obs_helpers.sampler(vis_arr, [sampler_info_list[0]], sample_type="vis")
+    v2 =  obs_helpers.sampler(vis_arr, [sampler_info_list[1]], sample_type="vis")
+    v3 =  obs_helpers.sampler(vis_arr, [sampler_info_list[2]], sample_type="vis")
+    v4 =  obs_helpers.sampler(vis_arr, [sampler_info_list[3]], sample_type="vis")
     clamp_samples = np.abs((v1 * v2)/(v3 * v4))
 
     # gradient components
@@ -1313,7 +1307,7 @@ def chisqgrad_camp_fft(vis_arr, A, clamp, sigma):
     pt4 = -pp/v4.conj() * sampler_info_list[3].pulsefac.conj()
 
     # Setup and perform the inverse FFT
-    wdiff = obsh.gridder([pt1, pt2, pt3, pt4], gridder_info_list)
+    wdiff =  obs_helpers.gridder([pt1, pt2, pt3, pt4], gridder_info_list)
     grad_arr = np.fft.ifftshift(np.fft.ifft2(np.fft.fftshift(wdiff)))
     grad_arr = grad_arr * (im_info.npad * im_info.npad)
 
@@ -1330,7 +1324,7 @@ def chisq_logcamp_fft(vis_arr, A, log_clamp, sigma):
     """
 
     im_info, sampler_info_list, gridder_info_list = A
-    log_clamp_samples = np.log(obsh.sampler(vis_arr, sampler_info_list, sample_type='camp'))
+    log_clamp_samples = np.log( obs_helpers.sampler(vis_arr, sampler_info_list, sample_type='camp'))
 
     chisq = np.sum(np.abs((log_clamp - log_clamp_samples)/sigma)**2) / (len(log_clamp))
 
@@ -1344,10 +1338,10 @@ def chisqgrad_logcamp_fft(vis_arr, A, log_clamp, sigma):
     im_info, sampler_info_list, gridder_info_list = A
 
     # sampled visibility and closure amplitudes
-    v1 = obsh.sampler(vis_arr, [sampler_info_list[0]], sample_type="vis")
-    v2 = obsh.sampler(vis_arr, [sampler_info_list[1]], sample_type="vis")
-    v3 = obsh.sampler(vis_arr, [sampler_info_list[2]], sample_type="vis")
-    v4 = obsh.sampler(vis_arr, [sampler_info_list[3]], sample_type="vis")
+    v1 =  obs_helpers.sampler(vis_arr, [sampler_info_list[0]], sample_type="vis")
+    v2 =  obs_helpers.sampler(vis_arr, [sampler_info_list[1]], sample_type="vis")
+    v3 =  obs_helpers.sampler(vis_arr, [sampler_info_list[2]], sample_type="vis")
+    v4 =  obs_helpers.sampler(vis_arr, [sampler_info_list[3]], sample_type="vis")
 
     log_clamp_samples = np.log(np.abs((v1 * v2)/(v3 * v4)))
 
@@ -1359,7 +1353,7 @@ def chisqgrad_logcamp_fft(vis_arr, A, log_clamp, sigma):
     pt4 = -pp / v4.conj() * sampler_info_list[3].pulsefac.conj()
 
     # Setup and perform the inverse FFT
-    wdiff = obsh.gridder([pt1, pt2, pt3, pt4], gridder_info_list)
+    wdiff =  obs_helpers.gridder([pt1, pt2, pt3, pt4], gridder_info_list)
     grad_arr = np.fft.ifftshift(np.fft.ifft2(np.fft.fftshift(wdiff)))
     grad_arr = grad_arr * (im_info.npad * im_info.npad)
 
@@ -1382,8 +1376,8 @@ def chisq_logcamp_diag_fft(imvec, A, log_clamp_diag, sigma):
     tform_mats = A[1]
 
     im_info, sampler_info_list, gridder_info_list = A4
-    vis_arr = obsh.fft_imvec(imvec, A4[0])
-    log_clamp_samples = np.log(obsh.sampler(vis_arr, sampler_info_list, sample_type='camp'))
+    vis_arr =  obs_helpers.fft_imvec(imvec, A4[0])
+    log_clamp_samples = np.log( obs_helpers.sampler(vis_arr, sampler_info_list, sample_type='camp'))
 
     count = 0
     log_clamp_diag_samples = []
@@ -1409,13 +1403,13 @@ def chisqgrad_logcamp_diag_fft(imvec, A, log_clamp_diag, sigma):
     tform_mats = A[1]
 
     im_info, sampler_info_list, gridder_info_list = A4
-    vis_arr = obsh.fft_imvec(imvec, A4[0])
+    vis_arr =  obs_helpers.fft_imvec(imvec, A4[0])
 
     # sampled visibility and closure amplitudes
-    v1 = obsh.sampler(vis_arr, [sampler_info_list[0]], sample_type="vis")
-    v2 = obsh.sampler(vis_arr, [sampler_info_list[1]], sample_type="vis")
-    v3 = obsh.sampler(vis_arr, [sampler_info_list[2]], sample_type="vis")
-    v4 = obsh.sampler(vis_arr, [sampler_info_list[3]], sample_type="vis")
+    v1 =  obs_helpers.sampler(vis_arr, [sampler_info_list[0]], sample_type="vis")
+    v2 =  obs_helpers.sampler(vis_arr, [sampler_info_list[1]], sample_type="vis")
+    v3 =  obs_helpers.sampler(vis_arr, [sampler_info_list[2]], sample_type="vis")
+    v4 =  obs_helpers.sampler(vis_arr, [sampler_info_list[3]], sample_type="vis")
     log_clamp_samples = np.log(np.abs((v1 * v2)/(v3 * v4)))
 
     # gradient vec stuff
@@ -1440,7 +1434,7 @@ def chisqgrad_logcamp_diag_fft(imvec, A, log_clamp_diag, sigma):
     pt4 = -pref / v4.conj() * sampler_info_list[3].pulsefac.conj()
 
     # Setup and perform the inverse FFT
-    wdiff = obsh.gridder([pt1, pt2, pt3, pt4], gridder_info_list)
+    wdiff =  obs_helpers.gridder([pt1, pt2, pt3, pt4], gridder_info_list)
     grad_arr = np.fft.ifftshift(np.fft.ifft2(np.fft.fftshift(wdiff)))
     grad_arr = grad_arr * (im_info.npad * im_info.npad)
 
@@ -1461,7 +1455,7 @@ def chisq_logamp_fft(vis_arr, A, amp, sigma):
     logsigma = sigma / amp
 
     im_info, sampler_info_list, gridder_info_list = A
-    amp_samples = np.abs(obsh.sampler(vis_arr, sampler_info_list, sample_type="vis"))
+    amp_samples = np.abs( obs_helpers.sampler(vis_arr, sampler_info_list, sample_type="vis"))
     chisq = np.sum(np.abs((np.log(amp_samples)-np.log(amp))/logsigma)**2)/(len(amp))
     return chisq
 
@@ -1473,7 +1467,7 @@ def chisqgrad_logamp_fft(vis_arr, A, amp, sigma):
     im_info, sampler_info_list, gridder_info_list = A
 
     # samples
-    samples = obsh.sampler(vis_arr, sampler_info_list, sample_type="vis")
+    samples =  obs_helpers.sampler(vis_arr, sampler_info_list, sample_type="vis")
     amp_samples = np.abs(samples)
 
     # gradient FT
@@ -1483,7 +1477,7 @@ def chisqgrad_logamp_fft(vis_arr, A, amp, sigma):
                  (logsigma**2) / samples.conj()) * pulsefac.conj()
 
     # Setup and perform the inverse FFT
-    wdiff_arr = obsh.gridder([wdiff_vec], gridder_info_list)
+    wdiff_arr =  obs_helpers.gridder([wdiff_vec], gridder_info_list)
     grad_arr = np.fft.ifftshift(np.fft.ifft2(np.fft.fftshift(wdiff_arr)))
     grad_arr = grad_arr * (im_info.npad * im_info.npad)
 
@@ -1679,8 +1673,8 @@ def chisq_cphase_nfft(imvec, A, clphase, sigma):
     """Closure Phases (normalized) chi-squared from nfft
     """
 
-    clphase = clphase * ehc.DEGREE
-    sigma = sigma * ehc.DEGREE
+    clphase = clphase * const_def.DEGREE
+    sigma = sigma * const_def.DEGREE
 
     # get nfft objects
     nfft_info1 = A[0]
@@ -1718,8 +1712,8 @@ def chisq_cphase_nfft(imvec, A, clphase, sigma):
 def chisqgrad_cphase_nfft(imvec, A, clphase, sigma):
     """The gradient of the closure phase chi-squared from nfft"""
 
-    clphase = clphase * ehc.DEGREE
-    sigma = sigma * ehc.DEGREE
+    clphase = clphase * const_def.DEGREE
+    sigma = sigma * const_def.DEGREE
 
     # get nfft objects
     nfft_info1 = A[0]
@@ -1775,8 +1769,8 @@ def chisq_cphase_diag_nfft(imvec, A, clphase_diag, sigma):
     """Diagonalized closure phases (normalized) chi-squared from nfft
     """
 
-    clphase_diag = np.concatenate(clphase_diag) * ehc.DEGREE
-    sigma = np.concatenate(sigma) * ehc.DEGREE
+    clphase_diag = np.concatenate(clphase_diag) * const_def.DEGREE
+    sigma = np.concatenate(sigma) * const_def.DEGREE
 
     A3 = A[0]
     tform_mats = A[1]
@@ -1828,8 +1822,8 @@ def chisq_cphase_diag_nfft(imvec, A, clphase_diag, sigma):
 def chisqgrad_cphase_diag_nfft(imvec, A, clphase_diag, sigma):
     """The gradient of the diagonalized closure phase chi-squared from nfft"""
 
-    clphase_diag = np.concatenate(clphase_diag) * ehc.DEGREE
-    sigma = np.concatenate(sigma) * ehc.DEGREE
+    clphase_diag = np.concatenate(clphase_diag) * const_def.DEGREE
+    sigma = np.concatenate(sigma) * const_def.DEGREE
 
     A3 = A[0]
     tform_mats = A[1]
@@ -2443,7 +2437,7 @@ def sl1grad(imvec, priorvec, flux, norm_reg=NORM_REGULARIZER):
     return l1grad/norm
 
 
-def sl1w(imvec, priorvec, flux, norm_reg=NORM_REGULARIZER, epsilon=ehc.EP):
+def sl1w(imvec, priorvec, flux, norm_reg=NORM_REGULARIZER, epsilon=const_def.EP):
     """Weighted L1 norm regularizer a la SMILI
     """
 
@@ -2461,7 +2455,7 @@ def sl1w(imvec, priorvec, flux, norm_reg=NORM_REGULARIZER, epsilon=ehc.EP):
     return l1w/norm
 
 
-def sl1wgrad(imvec, priorvec, flux, norm_reg=NORM_REGULARIZER, epsilon=ehc.EP):
+def sl1wgrad(imvec, priorvec, flux, norm_reg=NORM_REGULARIZER, epsilon=const_def.EP):
     """Weighted L1 norm gradient
     """
     if norm_reg:
@@ -2909,9 +2903,9 @@ def apply_systematic_noise_snrcut(data_arr, systematic_noise, snrcut, pol):
        returns: (uv, vis, amp, sigma)
     """
 
-    vtype = ehc.vis_poldict[pol]
-    atype = ehc.amp_poldict[pol]
-    etype = ehc.sig_poldict[pol]
+    vtype = const_def.vis_poldict[pol]
+    atype = const_def.amp_poldict[pol]
+    etype = const_def.sig_poldict[pol]
 
     t1 = data_arr['t1']
     t2 = data_arr['t2']
@@ -2965,9 +2959,9 @@ def chisqdata_vis(Obsdata, Prior, mask, pol='I', **kwargs):
     weighting = kwargs.get('weighting', 'natural')
 
     # unpack data
-    vtype = ehc.vis_poldict[pol]
-    atype = ehc.amp_poldict[pol]
-    etype = ehc.sig_poldict[pol]
+    vtype = const_def.vis_poldict[pol]
+    atype = const_def.amp_poldict[pol]
+    etype = const_def.sig_poldict[pol]
     data_arr = Obsdata.unpack(['t1', 't2', 'u', 'v', vtype, atype, etype], debias=debias)
     (uv, vis, amp, sigma) = apply_systematic_noise_snrcut(data_arr, systematic_noise, snrcut, pol)
 
@@ -2976,7 +2970,7 @@ def chisqdata_vis(Obsdata, Prior, mask, pol='I', **kwargs):
         sigma = np.median(sigma) * np.ones(len(sigma))
 
     # make fourier matrix
-    A = obsh.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv, pulse=Prior.pulse, mask=mask)
+    A =  obs_helpers.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv, pulse=Prior.pulse, mask=mask)
 
     return (vis, sigma, A)
 
@@ -2992,9 +2986,9 @@ def chisqdata_amp(Obsdata, Prior, mask, pol='I', **kwargs):
     weighting = kwargs.get('weighting', 'natural')
 
     # unpack data
-    vtype = ehc.vis_poldict[pol]
-    atype = ehc.amp_poldict[pol]
-    etype = ehc.sig_poldict[pol]
+    vtype = const_def.vis_poldict[pol]
+    atype = const_def.amp_poldict[pol]
+    etype = const_def.sig_poldict[pol]
     if (Obsdata.amp is None) or (len(Obsdata.amp) == 0) or pol != 'I':
         data_arr = Obsdata.unpack(['t1', 't2', 'u', 'v', vtype, atype, etype], debias=debias)
 
@@ -3013,7 +3007,7 @@ def chisqdata_amp(Obsdata, Prior, mask, pol='I', **kwargs):
         sigma = np.median(sigma) * np.ones(len(sigma))
 
     # make fourier matrix
-    A = obsh.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv, pulse=Prior.pulse, mask=mask)
+    A =  obs_helpers.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv, pulse=Prior.pulse, mask=mask)
 
     return (amp, sigma, A)
 
@@ -3034,7 +3028,7 @@ def chisqdata_bs(Obsdata, Prior, mask, pol='I', **kwargs):
     weighting = kwargs.get('weighting', 'natural')
 
     # unpack data
-    vtype = ehc.vis_poldict[pol]
+    vtype = const_def.vis_poldict[pol]
     if (Obsdata.bispec is None) or (len(Obsdata.bispec) == 0) or pol != 'I':
         biarr = Obsdata.bispectra(mode="all", vtype=vtype, count=count, snrcut=snrcut)
 
@@ -3045,7 +3039,7 @@ def chisqdata_bs(Obsdata, Prior, mask, pol='I', **kwargs):
         biarr = Obsdata.bispec
         # reduce to a minimal set
         if count != 'max':
-            biarr = obsh.reduce_tri_minimal(Obsdata, biarr)
+            biarr =  obs_helpers.reduce_tri_minimal(Obsdata, biarr)
 
     uv1 = np.hstack((biarr['u1'].reshape(-1, 1), biarr['v1'].reshape(-1, 1)))
     uv2 = np.hstack((biarr['u2'].reshape(-1, 1), biarr['v2'].reshape(-1, 1)))
@@ -3061,9 +3055,9 @@ def chisqdata_bs(Obsdata, Prior, mask, pol='I', **kwargs):
         sigma = np.median(sigma) * np.ones(len(sigma))
 
     # make fourier matrices
-    A3 = (obsh.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv1, pulse=Prior.pulse, mask=mask),
-          obsh.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv2, pulse=Prior.pulse, mask=mask),
-          obsh.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv3, pulse=Prior.pulse, mask=mask)
+    A3 = ( obs_helpers.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv1, pulse=Prior.pulse, mask=mask),
+           obs_helpers.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv2, pulse=Prior.pulse, mask=mask),
+           obs_helpers.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv3, pulse=Prior.pulse, mask=mask)
          )
 
     return (bi, sigma, A3)
@@ -3086,7 +3080,7 @@ def chisqdata_cphase(Obsdata, Prior, mask, pol='I', **kwargs):
     weighting = kwargs.get('weighting', 'natural')
 
     # unpack data
-    vtype = ehc.vis_poldict[pol]
+    vtype = const_def.vis_poldict[pol]
     if (Obsdata.cphase is None) or (len(Obsdata.cphase) == 0) or pol != 'I':
         clphasearr = Obsdata.c_phases(mode="all", vtype=vtype,
                                       count=count, uv_min=uv_min, snrcut=snrcut)
@@ -3097,7 +3091,7 @@ def chisqdata_cphase(Obsdata, Prior, mask, pol='I', **kwargs):
         clphasearr = Obsdata.cphase
         # reduce to a minimal set
         if count != 'max':
-            clphasearr = obsh.reduce_tri_minimal(Obsdata, clphasearr)
+            clphasearr =  obs_helpers.reduce_tri_minimal(Obsdata, clphasearr)
 
     uv1 = np.hstack((clphasearr['u1'].reshape(-1, 1), clphasearr['v1'].reshape(-1, 1)))
     uv2 = np.hstack((clphasearr['u2'].reshape(-1, 1), clphasearr['v2'].reshape(-1, 1)))
@@ -3113,9 +3107,9 @@ def chisqdata_cphase(Obsdata, Prior, mask, pol='I', **kwargs):
         sigma = np.median(sigma) * np.ones(len(sigma))
 
     # make fourier matrices
-    A3 = (obsh.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv1, pulse=Prior.pulse, mask=mask),
-          obsh.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv2, pulse=Prior.pulse, mask=mask),
-          obsh.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv3, pulse=Prior.pulse, mask=mask)
+    A3 = ( obs_helpers.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv1, pulse=Prior.pulse, mask=mask),
+           obs_helpers.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv2, pulse=Prior.pulse, mask=mask),
+           obs_helpers.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv3, pulse=Prior.pulse, mask=mask)
           )
     return (clphase, sigma, A3)
 
@@ -3135,7 +3129,7 @@ def chisqdata_cphase_diag(Obsdata, Prior, mask, pol='I', **kwargs):
     snrcut = kwargs.get('snrcut', 0.)
 
     # unpack data
-    vtype = ehc.vis_poldict[pol]
+    vtype = const_def.vis_poldict[pol]
     clphasearr = Obsdata.c_phases_diag(vtype=vtype, count=count, snrcut=snrcut, uv_min=uv_min)
 
     # loop over timestamps
@@ -3163,9 +3157,9 @@ def chisqdata_cphase_diag(Obsdata, Prior, mask, pol='I', **kwargs):
         uv3 = np.hstack((u3.reshape(-1, 1), v3.reshape(-1, 1)))
 
         # compute Fourier matrices
-        A3 = (obsh.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv1, pulse=Prior.pulse, mask=mask),
-              obsh.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv2, pulse=Prior.pulse, mask=mask),
-              obsh.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv3, pulse=Prior.pulse, mask=mask)
+        A3 = ( obs_helpers.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv1, pulse=Prior.pulse, mask=mask),
+               obs_helpers.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv2, pulse=Prior.pulse, mask=mask),
+               obs_helpers.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv3, pulse=Prior.pulse, mask=mask)
               )
         A3_diag.append(A3)
 
@@ -3193,7 +3187,7 @@ def chisqdata_camp(Obsdata, Prior, mask, pol='I', **kwargs):
     weighting = kwargs.get('weighting', 'natural')
 
     # unpack data & mask low snr points
-    vtype = ehc.vis_poldict[pol]
+    vtype = const_def.vis_poldict[pol]
     if (Obsdata.camp is None) or (len(Obsdata.camp) == 0) or pol != 'I':
         clamparr = Obsdata.c_amplitudes(mode='all', count=count,
                                         vtype=vtype, ctype='camp', debias=debias, snrcut=snrcut)
@@ -3204,7 +3198,7 @@ def chisqdata_camp(Obsdata, Prior, mask, pol='I', **kwargs):
         clamparr = Obsdata.camp
         # reduce to a minimal set
         if count != 'max':
-            clamparr = obsh.reduce_quad_minimal(Obsdata, clamparr, ctype='camp')
+            clamparr =  obs_helpers.reduce_quad_minimal(Obsdata, clamparr, ctype='camp')
 
     uv1 = np.hstack((clamparr['u1'].reshape(-1, 1), clamparr['v1'].reshape(-1, 1)))
     uv2 = np.hstack((clamparr['u2'].reshape(-1, 1), clamparr['v2'].reshape(-1, 1)))
@@ -3218,10 +3212,10 @@ def chisqdata_camp(Obsdata, Prior, mask, pol='I', **kwargs):
         sigma = np.median(sigma) * np.ones(len(sigma))
 
     # make fourier matrices
-    A4 = (obsh.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv1, pulse=Prior.pulse, mask=mask),
-          obsh.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv2, pulse=Prior.pulse, mask=mask),
-          obsh.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv3, pulse=Prior.pulse, mask=mask),
-          obsh.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv4, pulse=Prior.pulse, mask=mask)
+    A4 = ( obs_helpers.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv1, pulse=Prior.pulse, mask=mask),
+           obs_helpers.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv2, pulse=Prior.pulse, mask=mask),
+           obs_helpers.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv3, pulse=Prior.pulse, mask=mask),
+           obs_helpers.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv4, pulse=Prior.pulse, mask=mask)
           )
 
     return (clamp, sigma, A4)
@@ -3242,7 +3236,7 @@ def chisqdata_logcamp(Obsdata, Prior, mask, pol='I', **kwargs):
     weighting = kwargs.get('weighting', 'natural')
 
     # unpack data & mask low snr points
-    vtype = ehc.vis_poldict[pol]
+    vtype = const_def.vis_poldict[pol]
     if (Obsdata.logcamp is None) or (len(Obsdata.logcamp) == 0) or pol != 'I':
         clamparr = Obsdata.c_amplitudes(mode='all', count=count,
                                         vtype=vtype, ctype='logcamp', debias=debias, snrcut=snrcut)
@@ -3253,7 +3247,7 @@ def chisqdata_logcamp(Obsdata, Prior, mask, pol='I', **kwargs):
         clamparr = Obsdata.logcamp
         # reduce to a minimal set
         if count != 'max':
-            clamparr = obsh.reduce_quad_minimal(Obsdata, clamparr, ctype='logcamp')
+            clamparr =  obs_helpers.reduce_quad_minimal(Obsdata, clamparr, ctype='logcamp')
 
     uv1 = np.hstack((clamparr['u1'].reshape(-1, 1), clamparr['v1'].reshape(-1, 1)))
     uv2 = np.hstack((clamparr['u2'].reshape(-1, 1), clamparr['v2'].reshape(-1, 1)))
@@ -3267,10 +3261,10 @@ def chisqdata_logcamp(Obsdata, Prior, mask, pol='I', **kwargs):
         sigma = np.median(sigma) * np.ones(len(sigma))
 
     # make fourier matrices
-    A4 = (obsh.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv1, pulse=Prior.pulse, mask=mask),
-          obsh.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv2, pulse=Prior.pulse, mask=mask),
-          obsh.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv3, pulse=Prior.pulse, mask=mask),
-          obsh.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv4, pulse=Prior.pulse, mask=mask)
+    A4 = ( obs_helpers.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv1, pulse=Prior.pulse, mask=mask),
+           obs_helpers.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv2, pulse=Prior.pulse, mask=mask),
+           obs_helpers.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv3, pulse=Prior.pulse, mask=mask),
+           obs_helpers.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv4, pulse=Prior.pulse, mask=mask)
           )
 
     return (clamp, sigma, A4)
@@ -3290,7 +3284,7 @@ def chisqdata_logcamp_diag(Obsdata, Prior, mask, pol='I', **kwargs):
     debias = kwargs.get('debias', True)
 
     # unpack data & mask low snr points
-    vtype = ehc.vis_poldict[pol]
+    vtype = const_def.vis_poldict[pol]
     clamparr = Obsdata.c_log_amplitudes_diag(vtype=vtype, count=count, debias=debias, snrcut=snrcut)
 
     # loop over timestamps
@@ -3322,10 +3316,10 @@ def chisqdata_logcamp_diag(Obsdata, Prior, mask, pol='I', **kwargs):
         uv4 = np.hstack((u4.reshape(-1, 1), v4.reshape(-1, 1)))
 
         # compute Fourier matrices
-        A4 = (obsh.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv1, pulse=Prior.pulse, mask=mask),
-              obsh.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv2, pulse=Prior.pulse, mask=mask),
-              obsh.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv3, pulse=Prior.pulse, mask=mask),
-              obsh.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv4, pulse=Prior.pulse, mask=mask)
+        A4 = ( obs_helpers.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv1, pulse=Prior.pulse, mask=mask),
+               obs_helpers.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv2, pulse=Prior.pulse, mask=mask),
+               obs_helpers.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv3, pulse=Prior.pulse, mask=mask),
+               obs_helpers.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv4, pulse=Prior.pulse, mask=mask)
               )
         A4_diag.append(A4)
 
@@ -3351,15 +3345,15 @@ def chisqdata_vis_fft(Obsdata, Prior, pol='I', **kwargs):
     snrcut = kwargs.get('snrcut', 0.)
     debias = kwargs.get('debias', True)
     weighting = kwargs.get('weighting', 'natural')
-    fft_pad_factor = kwargs.get('fft_pad_factor', ehc.FFT_PAD_DEFAULT)
-    conv_func = kwargs.get('conv_func', ehc.GRIDDER_CONV_FUNC_DEFAULT)
-    p_rad = kwargs.get('p_rad', ehc.GRIDDER_P_RAD_DEFAULT)
-    order = kwargs.get('order', ehc.FFT_INTERP_DEFAULT)
+    fft_pad_factor = kwargs.get('fft_pad_factor', const_def.FFT_PAD_DEFAULT)
+    conv_func = kwargs.get('conv_func', const_def.GRIDDER_CONV_FUNC_DEFAULT)
+    p_rad = kwargs.get('p_rad', const_def.GRIDDER_P_RAD_DEFAULT)
+    order = kwargs.get('order', const_def.FFT_INTERP_DEFAULT)
 
     # unpack data
-    vtype = ehc.vis_poldict[pol]
-    atype = ehc.amp_poldict[pol]
-    etype = ehc.sig_poldict[pol]
+    vtype = const_def.vis_poldict[pol]
+    atype = const_def.amp_poldict[pol]
+    etype = const_def.sig_poldict[pol]
     data_arr = Obsdata.unpack(['t1', 't2', 'u', 'v', vtype, atype, etype], debias=debias)
     (uv, vis, amp, sigma) = apply_systematic_noise_snrcut(data_arr, systematic_noise, snrcut, pol)
 
@@ -3369,8 +3363,8 @@ def chisqdata_vis_fft(Obsdata, Prior, pol='I', **kwargs):
 
     # prepare image and fft info objects
     npad = int(fft_pad_factor * np.max((Prior.xdim, Prior.ydim)))
-    im_info = obsh.ImInfo(Prior.xdim, Prior.ydim, npad, Prior.psize, Prior.pulse)
-    gs_info = obsh.make_gridder_and_sampler_info(
+    im_info =  obs_helpers.ImInfo(Prior.xdim, Prior.ydim, npad, Prior.psize, Prior.pulse)
+    gs_info =  obs_helpers.make_gridder_and_sampler_info(
         im_info, uv, conv_func=conv_func, p_rad=p_rad, order=order)
 
     sampler_info_list = [gs_info[0]]
@@ -3389,15 +3383,15 @@ def chisqdata_amp_fft(Obsdata, Prior, pol='I', **kwargs):
     snrcut = kwargs.get('snrcut', 0.)
     debias = kwargs.get('debias', True)
     weighting = kwargs.get('weighting', 'natural')
-    fft_pad_factor = kwargs.get('fft_pad_factor', ehc.FFT_PAD_DEFAULT)
-    conv_func = kwargs.get('conv_func', ehc.GRIDDER_CONV_FUNC_DEFAULT)
-    p_rad = kwargs.get('p_rad', ehc.GRIDDER_P_RAD_DEFAULT)
-    order = kwargs.get('order', ehc.FFT_INTERP_DEFAULT)
+    fft_pad_factor = kwargs.get('fft_pad_factor', const_def.FFT_PAD_DEFAULT)
+    conv_func = kwargs.get('conv_func', const_def.GRIDDER_CONV_FUNC_DEFAULT)
+    p_rad = kwargs.get('p_rad', const_def.GRIDDER_P_RAD_DEFAULT)
+    order = kwargs.get('order', const_def.FFT_INTERP_DEFAULT)
 
     # unpack data
-    vtype = ehc.vis_poldict[pol]
-    atype = ehc.amp_poldict[pol]
-    etype = ehc.sig_poldict[pol]
+    vtype = const_def.vis_poldict[pol]
+    atype = const_def.amp_poldict[pol]
+    etype = const_def.sig_poldict[pol]
     if (Obsdata.amp is None) or (len(Obsdata.amp) == 0) or pol != 'I':
         data_arr = Obsdata.unpack(['t1', 't2', 'u', 'v', vtype, atype, etype], debias=debias)
     else:  # TODO -- pre-computed  with not stokes I?
@@ -3415,8 +3409,8 @@ def chisqdata_amp_fft(Obsdata, Prior, pol='I', **kwargs):
 
     # prepare image and fft info objects
     npad = int(fft_pad_factor * np.max((Prior.xdim, Prior.ydim)))
-    im_info = obsh.ImInfo(Prior.xdim, Prior.ydim, npad, Prior.psize, Prior.pulse)
-    gs_info = obsh.make_gridder_and_sampler_info(im_info, uv,
+    im_info =  obs_helpers.ImInfo(Prior.xdim, Prior.ydim, npad, Prior.psize, Prior.pulse)
+    gs_info =  obs_helpers.make_gridder_and_sampler_info(im_info, uv,
                                                  conv_func=conv_func, p_rad=p_rad, order=order)
 
     sampler_info_list = [gs_info[0]]
@@ -3440,13 +3434,13 @@ def chisqdata_bs_fft(Obsdata, Prior, pol='I', **kwargs):
 
     snrcut = kwargs.get('snrcut', 0.)
     weighting = kwargs.get('weighting', 'natural')
-    fft_pad_factor = kwargs.get('fft_pad_factor', ehc.FFT_PAD_DEFAULT)
-    conv_func = kwargs.get('conv_func', ehc.GRIDDER_CONV_FUNC_DEFAULT)
-    p_rad = kwargs.get('p_rad', ehc.GRIDDER_P_RAD_DEFAULT)
-    order = kwargs.get('order', ehc.FFT_INTERP_DEFAULT)
+    fft_pad_factor = kwargs.get('fft_pad_factor', const_def.FFT_PAD_DEFAULT)
+    conv_func = kwargs.get('conv_func', const_def.GRIDDER_CONV_FUNC_DEFAULT)
+    p_rad = kwargs.get('p_rad', const_def.GRIDDER_P_RAD_DEFAULT)
+    order = kwargs.get('order', const_def.FFT_INTERP_DEFAULT)
 
     # unpack data
-    vtype = ehc.vis_poldict[pol]
+    vtype = const_def.vis_poldict[pol]
     if (Obsdata.bispec is None) or (len(Obsdata.bispec) == 0) or pol != 'I':
         biarr = Obsdata.bispectra(mode="all", vtype=vtype, count=count, snrcut=snrcut)
     else:  # TODO -- pre-computed  with not stokes I?
@@ -3456,7 +3450,7 @@ def chisqdata_bs_fft(Obsdata, Prior, pol='I', **kwargs):
         biarr = Obsdata.bispec
         # reduce to a minimal set
         if count != 'max':
-            biarr = obsh.reduce_tri_minimal(Obsdata, biarr)
+            biarr =  obs_helpers.reduce_tri_minimal(Obsdata, biarr)
 
     uv1 = np.hstack((biarr['u1'].reshape(-1, 1), biarr['v1'].reshape(-1, 1)))
     uv2 = np.hstack((biarr['u2'].reshape(-1, 1), biarr['v2'].reshape(-1, 1)))
@@ -3473,12 +3467,12 @@ def chisqdata_bs_fft(Obsdata, Prior, pol='I', **kwargs):
 
     # prepare image and fft info objects
     npad = int(fft_pad_factor * np.max((Prior.xdim, Prior.ydim)))
-    im_info = obsh.ImInfo(Prior.xdim, Prior.ydim, npad, Prior.psize, Prior.pulse)
-    gs_info1 = obsh.make_gridder_and_sampler_info(im_info, uv1,
+    im_info =  obs_helpers.ImInfo(Prior.xdim, Prior.ydim, npad, Prior.psize, Prior.pulse)
+    gs_info1 =  obs_helpers.make_gridder_and_sampler_info(im_info, uv1,
                                                   conv_func=conv_func, p_rad=p_rad, order=order)
-    gs_info2 = obsh.make_gridder_and_sampler_info(im_info, uv2,
+    gs_info2 =  obs_helpers.make_gridder_and_sampler_info(im_info, uv2,
                                                   conv_func=conv_func, p_rad=p_rad, order=order)
-    gs_info3 = obsh.make_gridder_and_sampler_info(im_info, uv3,
+    gs_info3 =  obs_helpers.make_gridder_and_sampler_info(im_info, uv3,
                                                   conv_func=conv_func, p_rad=p_rad, order=order)
 
     sampler_info_list = [gs_info1[0], gs_info2[0], gs_info3[0]]
@@ -3502,13 +3496,13 @@ def chisqdata_cphase_fft(Obsdata, Prior, pol='I', **kwargs):
     snrcut = kwargs.get('snrcut', 0.)
     weighting = kwargs.get('weighting', 'natural')
     systematic_cphase_noise = kwargs.get('systematic_cphase_noise', 0.)
-    fft_pad_factor = kwargs.get('fft_pad_factor', ehc.FFT_PAD_DEFAULT)
-    conv_func = kwargs.get('conv_func', ehc.GRIDDER_CONV_FUNC_DEFAULT)
-    p_rad = kwargs.get('p_rad', ehc.GRIDDER_P_RAD_DEFAULT)
-    order = kwargs.get('order', ehc.FFT_INTERP_DEFAULT)
+    fft_pad_factor = kwargs.get('fft_pad_factor', const_def.FFT_PAD_DEFAULT)
+    conv_func = kwargs.get('conv_func', const_def.GRIDDER_CONV_FUNC_DEFAULT)
+    p_rad = kwargs.get('p_rad', const_def.GRIDDER_P_RAD_DEFAULT)
+    order = kwargs.get('order', const_def.FFT_INTERP_DEFAULT)
 
     # unpack data
-    vtype = ehc.vis_poldict[pol]
+    vtype = const_def.vis_poldict[pol]
     if (Obsdata.cphase is None) or (len(Obsdata.cphase) == 0) or pol != 'I':
         clphasearr = Obsdata.c_phases(mode="all", vtype=vtype,
                                       count=count, uv_min=uv_min, snrcut=snrcut)
@@ -3519,7 +3513,7 @@ def chisqdata_cphase_fft(Obsdata, Prior, pol='I', **kwargs):
         clphasearr = Obsdata.cphase
         # reduce to a minimal set
         if count != 'max':
-            clphasearr = obsh.reduce_tri_minimal(Obsdata, clphasearr)
+            clphasearr =  obs_helpers.reduce_tri_minimal(Obsdata, clphasearr)
 
     uv1 = np.hstack((clphasearr['u1'].reshape(-1, 1), clphasearr['v1'].reshape(-1, 1)))
     uv2 = np.hstack((clphasearr['u2'].reshape(-1, 1), clphasearr['v2'].reshape(-1, 1)))
@@ -3536,12 +3530,12 @@ def chisqdata_cphase_fft(Obsdata, Prior, pol='I', **kwargs):
 
     # prepare image and fft info objects
     npad = int(fft_pad_factor * np.max((Prior.xdim, Prior.ydim)))
-    im_info = obsh.ImInfo(Prior.xdim, Prior.ydim, npad, Prior.psize, Prior.pulse)
-    gs_info1 = obsh.make_gridder_and_sampler_info(im_info, uv1,
+    im_info =  obs_helpers.ImInfo(Prior.xdim, Prior.ydim, npad, Prior.psize, Prior.pulse)
+    gs_info1 =  obs_helpers.make_gridder_and_sampler_info(im_info, uv1,
                                                   conv_func=conv_func, p_rad=p_rad, order=order)
-    gs_info2 = obsh.make_gridder_and_sampler_info(im_info, uv2,
+    gs_info2 =  obs_helpers.make_gridder_and_sampler_info(im_info, uv2,
                                                   conv_func=conv_func, p_rad=p_rad, order=order)
-    gs_info3 = obsh.make_gridder_and_sampler_info(im_info, uv3,
+    gs_info3 =  obs_helpers.make_gridder_and_sampler_info(im_info, uv3,
                                                   conv_func=conv_func, p_rad=p_rad, order=order)
 
     sampler_info_list = [gs_info1[0], gs_info2[0], gs_info3[0]]
@@ -3563,13 +3557,13 @@ def chisqdata_cphase_diag_fft(Obsdata, Prior, pol='I', **kwargs):
         count = 'min'
 
     snrcut = kwargs.get('snrcut', 0.)
-    fft_pad_factor = kwargs.get('fft_pad_factor', ehc.FFT_PAD_DEFAULT)
-    conv_func = kwargs.get('conv_func', ehc.GRIDDER_CONV_FUNC_DEFAULT)
-    p_rad = kwargs.get('p_rad', ehc.GRIDDER_P_RAD_DEFAULT)
-    order = kwargs.get('order', ehc.FFT_INTERP_DEFAULT)
+    fft_pad_factor = kwargs.get('fft_pad_factor', const_def.FFT_PAD_DEFAULT)
+    conv_func = kwargs.get('conv_func', const_def.GRIDDER_CONV_FUNC_DEFAULT)
+    p_rad = kwargs.get('p_rad', const_def.GRIDDER_P_RAD_DEFAULT)
+    order = kwargs.get('order', const_def.FFT_INTERP_DEFAULT)
 
     # unpack data
-    vtype = ehc.vis_poldict[pol]
+    vtype = const_def.vis_poldict[pol]
     clphasearr = Obsdata.c_phases_diag(vtype=vtype, count=count, snrcut=snrcut, uv_min=uv_min)
 
     # loop over timestamps
@@ -3614,12 +3608,12 @@ def chisqdata_cphase_diag_fft(Obsdata, Prior, pol='I', **kwargs):
 
     # prepare image and fft info objects
     npad = int(fft_pad_factor * np.max((Prior.xdim, Prior.ydim)))
-    im_info = obsh.ImInfo(Prior.xdim, Prior.ydim, npad, Prior.psize, Prior.pulse)
-    gs_info1 = obsh.make_gridder_and_sampler_info(im_info, uv1,
+    im_info =  obs_helpers.ImInfo(Prior.xdim, Prior.ydim, npad, Prior.psize, Prior.pulse)
+    gs_info1 =  obs_helpers.make_gridder_and_sampler_info(im_info, uv1,
                                                   conv_func=conv_func, p_rad=p_rad, order=order)
-    gs_info2 = obsh.make_gridder_and_sampler_info(im_info, uv2,
+    gs_info2 =  obs_helpers.make_gridder_and_sampler_info(im_info, uv2,
                                                   conv_func=conv_func, p_rad=p_rad, order=order)
-    gs_info3 = obsh.make_gridder_and_sampler_info(im_info, uv3,
+    gs_info3 =  obs_helpers.make_gridder_and_sampler_info(im_info, uv3,
                                                   conv_func=conv_func, p_rad=p_rad, order=order)
 
     sampler_info_list = [gs_info1[0], gs_info2[0], gs_info3[0]]
@@ -3646,13 +3640,13 @@ def chisqdata_camp_fft(Obsdata, Prior, pol='I', **kwargs):
     snrcut = kwargs.get('snrcut', 0.)
     debias = kwargs.get('debias', True)
     weighting = kwargs.get('weighting', 'natural')
-    fft_pad_factor = kwargs.get('fft_pad_factor', ehc.FFT_PAD_DEFAULT)
-    conv_func = kwargs.get('conv_func', ehc.GRIDDER_CONV_FUNC_DEFAULT)
-    p_rad = kwargs.get('p_rad', ehc.GRIDDER_P_RAD_DEFAULT)
-    order = kwargs.get('order', ehc.FFT_INTERP_DEFAULT)
+    fft_pad_factor = kwargs.get('fft_pad_factor', const_def.FFT_PAD_DEFAULT)
+    conv_func = kwargs.get('conv_func', const_def.GRIDDER_CONV_FUNC_DEFAULT)
+    p_rad = kwargs.get('p_rad', const_def.GRIDDER_P_RAD_DEFAULT)
+    order = kwargs.get('order', const_def.FFT_INTERP_DEFAULT)
 
     # unpack data
-    vtype = ehc.vis_poldict[pol]
+    vtype = const_def.vis_poldict[pol]
     if (Obsdata.camp is None) or (len(Obsdata.camp) == 0) or pol != 'I':
         clamparr = Obsdata.c_amplitudes(mode='all', count=count,
                                         vtype=vtype, ctype='camp', debias=debias, snrcut=snrcut)
@@ -3663,7 +3657,7 @@ def chisqdata_camp_fft(Obsdata, Prior, pol='I', **kwargs):
         clamparr = Obsdata.camp
         # reduce to a minimal set
         if count != 'max':
-            clamparr = obsh.reduce_quad_minimal(Obsdata, clamparr, ctype='camp')
+            clamparr =  obs_helpers.reduce_quad_minimal(Obsdata, clamparr, ctype='camp')
 
     uv1 = np.hstack((clamparr['u1'].reshape(-1, 1), clamparr['v1'].reshape(-1, 1)))
     uv2 = np.hstack((clamparr['u2'].reshape(-1, 1), clamparr['v2'].reshape(-1, 1)))
@@ -3678,14 +3672,14 @@ def chisqdata_camp_fft(Obsdata, Prior, pol='I', **kwargs):
 
     # prepare image and fft info objects
     npad = int(fft_pad_factor * np.max((Prior.xdim, Prior.ydim)))
-    im_info = obsh.ImInfo(Prior.xdim, Prior.ydim, npad, Prior.psize, Prior.pulse)
-    gs_info1 = obsh.make_gridder_and_sampler_info(im_info, uv1,
+    im_info =  obs_helpers.ImInfo(Prior.xdim, Prior.ydim, npad, Prior.psize, Prior.pulse)
+    gs_info1 =  obs_helpers.make_gridder_and_sampler_info(im_info, uv1,
                                                   conv_func=conv_func, p_rad=p_rad, order=order)
-    gs_info2 = obsh.make_gridder_and_sampler_info(im_info, uv2,
+    gs_info2 =  obs_helpers.make_gridder_and_sampler_info(im_info, uv2,
                                                   conv_func=conv_func, p_rad=p_rad, order=order)
-    gs_info3 = obsh.make_gridder_and_sampler_info(im_info, uv3,
+    gs_info3 =  obs_helpers.make_gridder_and_sampler_info(im_info, uv3,
                                                   conv_func=conv_func, p_rad=p_rad, order=order)
-    gs_info4 = obsh.make_gridder_and_sampler_info(im_info, uv4,
+    gs_info4 =  obs_helpers.make_gridder_and_sampler_info(im_info, uv4,
                                                   conv_func=conv_func, p_rad=p_rad, order=order)
 
     sampler_info_list = [gs_info1[0], gs_info2[0], gs_info3[0], gs_info4[0]]
@@ -3708,13 +3702,13 @@ def chisqdata_logcamp_fft(Obsdata, Prior, pol='I', **kwargs):
     snrcut = kwargs.get('snrcut', 0.)
     debias = kwargs.get('debias', True)
     weighting = kwargs.get('weighting', 'natural')
-    fft_pad_factor = kwargs.get('fft_pad_factor', ehc.FFT_PAD_DEFAULT)
-    conv_func = kwargs.get('conv_func', ehc.GRIDDER_CONV_FUNC_DEFAULT)
-    p_rad = kwargs.get('p_rad', ehc.GRIDDER_P_RAD_DEFAULT)
-    order = kwargs.get('order', ehc.FFT_INTERP_DEFAULT)
+    fft_pad_factor = kwargs.get('fft_pad_factor', const_def.FFT_PAD_DEFAULT)
+    conv_func = kwargs.get('conv_func', const_def.GRIDDER_CONV_FUNC_DEFAULT)
+    p_rad = kwargs.get('p_rad', const_def.GRIDDER_P_RAD_DEFAULT)
+    order = kwargs.get('order', const_def.FFT_INTERP_DEFAULT)
 
     # unpack data
-    vtype = ehc.vis_poldict[pol]
+    vtype = const_def.vis_poldict[pol]
     if (Obsdata.logcamp is None) or (len(Obsdata.logcamp) == 0) or pol != 'I':
         clamparr = Obsdata.c_amplitudes(mode='all', count=count,
                                         vtype=vtype, ctype='logcamp', debias=debias, snrcut=snrcut)
@@ -3725,7 +3719,7 @@ def chisqdata_logcamp_fft(Obsdata, Prior, pol='I', **kwargs):
         clamparr = Obsdata.logcamp
         # reduce to a minimal set
         if count != 'max':
-            clamparr = obsh.reduce_quad_minimal(Obsdata, clamparr, ctype='logcamp')
+            clamparr =  obs_helpers.reduce_quad_minimal(Obsdata, clamparr, ctype='logcamp')
 
     uv1 = np.hstack((clamparr['u1'].reshape(-1, 1), clamparr['v1'].reshape(-1, 1)))
     uv2 = np.hstack((clamparr['u2'].reshape(-1, 1), clamparr['v2'].reshape(-1, 1)))
@@ -3740,14 +3734,14 @@ def chisqdata_logcamp_fft(Obsdata, Prior, pol='I', **kwargs):
 
     # prepare image and fft info objects
     npad = int(fft_pad_factor * np.max((Prior.xdim, Prior.ydim)))
-    im_info = obsh.ImInfo(Prior.xdim, Prior.ydim, npad, Prior.psize, Prior.pulse)
-    gs_info1 = obsh.make_gridder_and_sampler_info(im_info, uv1,
+    im_info =  obs_helpers.ImInfo(Prior.xdim, Prior.ydim, npad, Prior.psize, Prior.pulse)
+    gs_info1 =  obs_helpers.make_gridder_and_sampler_info(im_info, uv1,
                                                   conv_func=conv_func, p_rad=p_rad, order=order)
-    gs_info2 = obsh.make_gridder_and_sampler_info(im_info, uv2,
+    gs_info2 =  obs_helpers.make_gridder_and_sampler_info(im_info, uv2,
                                                   conv_func=conv_func, p_rad=p_rad, order=order)
-    gs_info3 = obsh.make_gridder_and_sampler_info(im_info, uv3,
+    gs_info3 =  obs_helpers.make_gridder_and_sampler_info(im_info, uv3,
                                                   conv_func=conv_func, p_rad=p_rad, order=order)
-    gs_info4 = obsh.make_gridder_and_sampler_info(im_info, uv4,
+    gs_info4 =  obs_helpers.make_gridder_and_sampler_info(im_info, uv4,
                                                   conv_func=conv_func, p_rad=p_rad, order=order)
 
     sampler_info_list = [gs_info1[0], gs_info2[0], gs_info3[0], gs_info4[0]]
@@ -3769,13 +3763,13 @@ def chisqdata_logcamp_diag_fft(Obsdata, Prior, pol='I', **kwargs):
 
     snrcut = kwargs.get('snrcut', 0.)
     debias = kwargs.get('debias', True)
-    fft_pad_factor = kwargs.get('fft_pad_factor', ehc.FFT_PAD_DEFAULT)
-    conv_func = kwargs.get('conv_func', ehc.GRIDDER_CONV_FUNC_DEFAULT)
-    p_rad = kwargs.get('p_rad', ehc.GRIDDER_P_RAD_DEFAULT)
-    order = kwargs.get('order', ehc.FFT_INTERP_DEFAULT)
+    fft_pad_factor = kwargs.get('fft_pad_factor', const_def.FFT_PAD_DEFAULT)
+    conv_func = kwargs.get('conv_func', const_def.GRIDDER_CONV_FUNC_DEFAULT)
+    p_rad = kwargs.get('p_rad', const_def.GRIDDER_P_RAD_DEFAULT)
+    order = kwargs.get('order', const_def.FFT_INTERP_DEFAULT)
 
     # unpack data & mask low snr points
-    vtype = ehc.vis_poldict[pol]
+    vtype = const_def.vis_poldict[pol]
     clamparr = Obsdata.c_log_amplitudes_diag(vtype=vtype, count=count,
                                              debias=debias, snrcut=snrcut)
 
@@ -3828,14 +3822,14 @@ def chisqdata_logcamp_diag_fft(Obsdata, Prior, pol='I', **kwargs):
 
     # prepare image and fft info objects
     npad = int(fft_pad_factor * np.max((Prior.xdim, Prior.ydim)))
-    im_info = obsh.ImInfo(Prior.xdim, Prior.ydim, npad, Prior.psize, Prior.pulse)
-    gs_info1 = obsh.make_gridder_and_sampler_info(im_info, uv1,
+    im_info =  obs_helpers.ImInfo(Prior.xdim, Prior.ydim, npad, Prior.psize, Prior.pulse)
+    gs_info1 =  obs_helpers.make_gridder_and_sampler_info(im_info, uv1,
                                                   conv_func=conv_func, p_rad=p_rad, order=order)
-    gs_info2 = obsh.make_gridder_and_sampler_info(im_info, uv2,
+    gs_info2 =  obs_helpers.make_gridder_and_sampler_info(im_info, uv2,
                                                   conv_func=conv_func, p_rad=p_rad, order=order)
-    gs_info3 = obsh.make_gridder_and_sampler_info(im_info, uv3,
+    gs_info3 =  obs_helpers.make_gridder_and_sampler_info(im_info, uv3,
                                                   conv_func=conv_func, p_rad=p_rad, order=order)
-    gs_info4 = obsh.make_gridder_and_sampler_info(im_info, uv4,
+    gs_info4 =  obs_helpers.make_gridder_and_sampler_info(im_info, uv4,
                                                   conv_func=conv_func, p_rad=p_rad, order=order)
 
     sampler_info_list = [gs_info1[0], gs_info2[0], gs_info3[0], gs_info4[0]]
@@ -3863,13 +3857,13 @@ def chisqdata_vis_nfft(Obsdata, Prior, pol='I', **kwargs):
     snrcut = kwargs.get('snrcut', 0.)
     debias = kwargs.get('debias', True)
     weighting = kwargs.get('weighting', 'natural')
-    fft_pad_factor = kwargs.get('fft_pad_factor', ehc.FFT_PAD_DEFAULT)
-    p_rad = kwargs.get('p_rad', ehc.GRIDDER_P_RAD_DEFAULT)
+    fft_pad_factor = kwargs.get('fft_pad_factor', const_def.FFT_PAD_DEFAULT)
+    p_rad = kwargs.get('p_rad', const_def.GRIDDER_P_RAD_DEFAULT)
 
     # unpack data
-    vtype = ehc.vis_poldict[pol]
-    atype = ehc.amp_poldict[pol]
-    etype = ehc.sig_poldict[pol]
+    vtype = const_def.vis_poldict[pol]
+    atype = const_def.amp_poldict[pol]
+    etype = const_def.sig_poldict[pol]
     data_arr = Obsdata.unpack(['t1', 't2', 'u', 'v', vtype, atype, etype], debias=debias)
     (uv, vis, amp, sigma) = apply_systematic_noise_snrcut(data_arr, systematic_noise, snrcut, pol)
 
@@ -3879,7 +3873,7 @@ def chisqdata_vis_nfft(Obsdata, Prior, pol='I', **kwargs):
 
     # get NFFT info
     npad = int(fft_pad_factor * np.max((Prior.xdim, Prior.ydim)))
-    A1 = obsh.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv)
+    A1 =  obs_helpers.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv)
     A = [A1]
 
     return (vis, sigma, A)
@@ -3896,13 +3890,13 @@ def chisqdata_amp_nfft(Obsdata, Prior, pol='I', **kwargs):
     snrcut = kwargs.get('snrcut', 0.)
     debias = kwargs.get('debias', True)
     weighting = kwargs.get('weighting', 'natural')
-    fft_pad_factor = kwargs.get('fft_pad_factor', ehc.FFT_PAD_DEFAULT)
-    p_rad = kwargs.get('p_rad', ehc.GRIDDER_P_RAD_DEFAULT)
+    fft_pad_factor = kwargs.get('fft_pad_factor', const_def.FFT_PAD_DEFAULT)
+    p_rad = kwargs.get('p_rad', const_def.GRIDDER_P_RAD_DEFAULT)
 
     # unpack data
-    vtype = ehc.vis_poldict[pol]
-    atype = ehc.amp_poldict[pol]
-    etype = ehc.sig_poldict[pol]
+    vtype = const_def.vis_poldict[pol]
+    atype = const_def.amp_poldict[pol]
+    etype = const_def.sig_poldict[pol]
     if (Obsdata.amp is None) or (len(Obsdata.amp) == 0) or pol != 'I':
         data_arr = Obsdata.unpack(['t1', 't2', 'u', 'v', vtype, atype, etype], debias=debias)
     else:  # TODO -- pre-computed  with not stokes I?
@@ -3920,7 +3914,7 @@ def chisqdata_amp_nfft(Obsdata, Prior, pol='I', **kwargs):
 
     # get NFFT info
     npad = int(fft_pad_factor * np.max((Prior.xdim, Prior.ydim)))
-    A1 = obsh.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv)
+    A1 =  obs_helpers.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv)
     A = [A1]
 
     return (amp, sigma, A)
@@ -3942,11 +3936,11 @@ def chisqdata_bs_nfft(Obsdata, Prior, pol='I', **kwargs):
 
     snrcut = kwargs.get('snrcut', 0.)
     weighting = kwargs.get('weighting', 'natural')
-    fft_pad_factor = kwargs.get('fft_pad_factor', ehc.FFT_PAD_DEFAULT)
-    p_rad = kwargs.get('p_rad', ehc.GRIDDER_P_RAD_DEFAULT)
+    fft_pad_factor = kwargs.get('fft_pad_factor', const_def.FFT_PAD_DEFAULT)
+    p_rad = kwargs.get('p_rad', const_def.GRIDDER_P_RAD_DEFAULT)
 
     # unpack data
-    vtype = ehc.vis_poldict[pol]
+    vtype = const_def.vis_poldict[pol]
     if (Obsdata.bispec is None) or (len(Obsdata.bispec) == 0) or pol != 'I':
         biarr = Obsdata.bispectra(mode="all", vtype=vtype, count=count, snrcut=snrcut)
     else:  # TODO -- pre-computed  with not stokes I?
@@ -3956,7 +3950,7 @@ def chisqdata_bs_nfft(Obsdata, Prior, pol='I', **kwargs):
         biarr = Obsdata.bispec
         # reduce to a minimal set
         if count != 'max':
-            biarr = obsh.reduce_tri_minimal(Obsdata, biarr)
+            biarr =  obs_helpers.reduce_tri_minimal(Obsdata, biarr)
 
     uv1 = np.hstack((biarr['u1'].reshape(-1, 1), biarr['v1'].reshape(-1, 1)))
     uv2 = np.hstack((biarr['u2'].reshape(-1, 1), biarr['v2'].reshape(-1, 1)))
@@ -3973,9 +3967,9 @@ def chisqdata_bs_nfft(Obsdata, Prior, pol='I', **kwargs):
 
     # get NFFT info
     npad = int(fft_pad_factor * np.max((Prior.xdim, Prior.ydim)))
-    A1 = obsh.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv1)
-    A2 = obsh.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv2)
-    A3 = obsh.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv3)
+    A1 =  obs_helpers.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv1)
+    A2 =  obs_helpers.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv2)
+    A3 =  obs_helpers.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv3)
     A = [A1, A2, A3]
 
     return (bi, sigma, A)
@@ -3998,11 +3992,11 @@ def chisqdata_cphase_nfft(Obsdata, Prior, pol='I', **kwargs):
     snrcut = kwargs.get('snrcut', 0.)
     weighting = kwargs.get('weighting', 'natural')
     systematic_cphase_noise = kwargs.get('systematic_cphase_noise', 0.)
-    fft_pad_factor = kwargs.get('fft_pad_factor', ehc.FFT_PAD_DEFAULT)
-    p_rad = kwargs.get('p_rad', ehc.GRIDDER_P_RAD_DEFAULT)
+    fft_pad_factor = kwargs.get('fft_pad_factor', const_def.FFT_PAD_DEFAULT)
+    p_rad = kwargs.get('p_rad', const_def.GRIDDER_P_RAD_DEFAULT)
 
     # unpack data
-    vtype = ehc.vis_poldict[pol]
+    vtype = const_def.vis_poldict[pol]
     if (Obsdata.cphase is None) or (len(Obsdata.cphase) == 0) or pol != 'I':
         clphasearr = Obsdata.c_phases(mode="all", vtype=vtype,
                                       count=count, uv_min=uv_min, snrcut=snrcut)
@@ -4013,7 +4007,7 @@ def chisqdata_cphase_nfft(Obsdata, Prior, pol='I', **kwargs):
         clphasearr = Obsdata.cphase
         # reduce to a minimal set
         if count != 'max':
-            clphasearr = obsh.reduce_tri_minimal(Obsdata, clphasearr)
+            clphasearr =  obs_helpers.reduce_tri_minimal(Obsdata, clphasearr)
 
     uv1 = np.hstack((clphasearr['u1'].reshape(-1, 1), clphasearr['v1'].reshape(-1, 1)))
     uv2 = np.hstack((clphasearr['u2'].reshape(-1, 1), clphasearr['v2'].reshape(-1, 1)))
@@ -4030,9 +4024,9 @@ def chisqdata_cphase_nfft(Obsdata, Prior, pol='I', **kwargs):
 
     # get NFFT info
     npad = int(fft_pad_factor * np.max((Prior.xdim, Prior.ydim)))
-    A1 = obsh.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv1)
-    A2 = obsh.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv2)
-    A3 = obsh.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv3)
+    A1 =  obs_helpers.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv1)
+    A2 =  obs_helpers.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv2)
+    A3 =  obs_helpers.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv3)
     A = [A1, A2, A3]
 
     return (clphase, sigma, A)
@@ -4053,11 +4047,11 @@ def chisqdata_cphase_diag_nfft(Obsdata, Prior, pol='I', **kwargs):
         count = 'min'
 
     snrcut = kwargs.get('snrcut', 0.)
-    fft_pad_factor = kwargs.get('fft_pad_factor', ehc.FFT_PAD_DEFAULT)
-    p_rad = kwargs.get('p_rad', ehc.GRIDDER_P_RAD_DEFAULT)
+    fft_pad_factor = kwargs.get('fft_pad_factor', const_def.FFT_PAD_DEFAULT)
+    p_rad = kwargs.get('p_rad', const_def.GRIDDER_P_RAD_DEFAULT)
 
     # unpack data
-    vtype = ehc.vis_poldict[pol]
+    vtype = const_def.vis_poldict[pol]
     clphasearr = Obsdata.c_phases_diag(vtype=vtype, count=count, snrcut=snrcut, uv_min=uv_min)
 
     # loop over timestamps
@@ -4102,9 +4096,9 @@ def chisqdata_cphase_diag_nfft(Obsdata, Prior, pol='I', **kwargs):
 
     # get NFFT info
     npad = int(fft_pad_factor * np.max((Prior.xdim, Prior.ydim)))
-    A1 = obsh.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv1)
-    A2 = obsh.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv2)
-    A3 = obsh.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv3)
+    A1 =  obs_helpers.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv1)
+    A2 =  obs_helpers.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv2)
+    A3 =  obs_helpers.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv3)
     A = [A1, A2, A3]
 
     # combine Fourier and transformation matrices into tuple for outputting
@@ -4129,11 +4123,11 @@ def chisqdata_camp_nfft(Obsdata, Prior, pol='I', **kwargs):
     snrcut = kwargs.get('snrcut', 0.)
     debias = kwargs.get('debias', True)
     weighting = kwargs.get('weighting', 'natural')
-    fft_pad_factor = kwargs.get('fft_pad_factor', ehc.FFT_PAD_DEFAULT)
-    p_rad = kwargs.get('p_rad', ehc.GRIDDER_P_RAD_DEFAULT)
+    fft_pad_factor = kwargs.get('fft_pad_factor', const_def.FFT_PAD_DEFAULT)
+    p_rad = kwargs.get('p_rad', const_def.GRIDDER_P_RAD_DEFAULT)
 
     # unpack data
-    vtype = ehc.vis_poldict[pol]
+    vtype = const_def.vis_poldict[pol]
     if (Obsdata.camp is None) or (len(Obsdata.camp) == 0) or pol != 'I':
         clamparr = Obsdata.c_amplitudes(mode='all', count=count,
                                         vtype=vtype, ctype='camp', debias=debias, snrcut=snrcut)
@@ -4144,7 +4138,7 @@ def chisqdata_camp_nfft(Obsdata, Prior, pol='I', **kwargs):
         clamparr = Obsdata.camp
         # reduce to a minimal set
         if count != 'max':
-            clamparr = obsh.reduce_quad_minimal(Obsdata, clamparr, ctype='camp')
+            clamparr =  obs_helpers.reduce_quad_minimal(Obsdata, clamparr, ctype='camp')
 
     uv1 = np.hstack((clamparr['u1'].reshape(-1, 1), clamparr['v1'].reshape(-1, 1)))
     uv2 = np.hstack((clamparr['u2'].reshape(-1, 1), clamparr['v2'].reshape(-1, 1)))
@@ -4159,10 +4153,10 @@ def chisqdata_camp_nfft(Obsdata, Prior, pol='I', **kwargs):
 
     # get NFFT info
     npad = int(fft_pad_factor * np.max((Prior.xdim, Prior.ydim)))
-    A1 = obsh.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv1)
-    A2 = obsh.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv2)
-    A3 = obsh.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv3)
-    A4 = obsh.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv4)
+    A1 =  obs_helpers.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv1)
+    A2 =  obs_helpers.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv2)
+    A3 =  obs_helpers.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv3)
+    A4 =  obs_helpers.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv4)
     A = [A1, A2, A3, A4]
 
     return (clamp, sigma, A)
@@ -4184,11 +4178,11 @@ def chisqdata_logcamp_nfft(Obsdata, Prior, pol='I', **kwargs):
     snrcut = kwargs.get('snrcut', 0.)
     debias = kwargs.get('debias', True)
     weighting = kwargs.get('weighting', 'natural')
-    fft_pad_factor = kwargs.get('fft_pad_factor', ehc.FFT_PAD_DEFAULT)
-    p_rad = kwargs.get('p_rad', ehc.GRIDDER_P_RAD_DEFAULT)
+    fft_pad_factor = kwargs.get('fft_pad_factor', const_def.FFT_PAD_DEFAULT)
+    p_rad = kwargs.get('p_rad', const_def.GRIDDER_P_RAD_DEFAULT)
 
     # unpack data
-    vtype = ehc.vis_poldict[pol]
+    vtype = const_def.vis_poldict[pol]
     if (Obsdata.logcamp is None) or (len(Obsdata.logcamp) == 0) or pol != 'I':
         clamparr = Obsdata.c_amplitudes(mode='all', count=count,
                                         vtype=vtype, ctype='logcamp', debias=debias, snrcut=snrcut)
@@ -4199,7 +4193,7 @@ def chisqdata_logcamp_nfft(Obsdata, Prior, pol='I', **kwargs):
         clamparr = Obsdata.logcamp
         # reduce to a minimal set
         if count != 'max':
-            clamparr = obsh.reduce_quad_minimal(Obsdata, clamparr, ctype='logcamp')
+            clamparr =  obs_helpers.reduce_quad_minimal(Obsdata, clamparr, ctype='logcamp')
 
     uv1 = np.hstack((clamparr['u1'].reshape(-1, 1), clamparr['v1'].reshape(-1, 1)))
     uv2 = np.hstack((clamparr['u2'].reshape(-1, 1), clamparr['v2'].reshape(-1, 1)))
@@ -4214,10 +4208,10 @@ def chisqdata_logcamp_nfft(Obsdata, Prior, pol='I', **kwargs):
 
     # get NFFT info
     npad = int(fft_pad_factor * np.max((Prior.xdim, Prior.ydim)))
-    A1 = obsh.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv1)
-    A2 = obsh.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv2)
-    A3 = obsh.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv3)
-    A4 = obsh.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv4)
+    A1 =  obs_helpers.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv1)
+    A2 =  obs_helpers.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv2)
+    A3 =  obs_helpers.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv3)
+    A4 =  obs_helpers.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv4)
     A = [A1, A2, A3, A4]
 
     return (clamp, sigma, A)
@@ -4238,11 +4232,11 @@ def chisqdata_logcamp_diag_nfft(Obsdata, Prior, pol='I', **kwargs):
 
     snrcut = kwargs.get('snrcut', 0.)
     debias = kwargs.get('debias', True)
-    fft_pad_factor = kwargs.get('fft_pad_factor', ehc.FFT_PAD_DEFAULT)
-    p_rad = kwargs.get('p_rad', ehc.GRIDDER_P_RAD_DEFAULT)
+    fft_pad_factor = kwargs.get('fft_pad_factor', const_def.FFT_PAD_DEFAULT)
+    p_rad = kwargs.get('p_rad', const_def.GRIDDER_P_RAD_DEFAULT)
 
     # unpack data & mask low snr points
-    vtype = ehc.vis_poldict[pol]
+    vtype = const_def.vis_poldict[pol]
     clamparr = Obsdata.c_log_amplitudes_diag(vtype=vtype, count=count, debias=debias, snrcut=snrcut)
 
     # loop over timestamps
@@ -4294,10 +4288,10 @@ def chisqdata_logcamp_diag_nfft(Obsdata, Prior, pol='I', **kwargs):
 
     # get NFFT info
     npad = int(fft_pad_factor * np.max((Prior.xdim, Prior.ydim)))
-    A1 = obsh.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv1)
-    A2 = obsh.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv2)
-    A3 = obsh.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv3)
-    A4 = obsh.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv4)
+    A1 =  obs_helpers.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv1)
+    A2 =  obs_helpers.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv2)
+    A3 =  obs_helpers.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv3)
+    A4 =  obs_helpers.NFFTInfo(Prior.xdim, Prior.ydim, Prior.psize, Prior.pulse, npad, p_rad, uv4)
     A = [A1, A2, A3, A4]
 
     # combine Fourier and transformation matrices into tuple for outputting
@@ -4340,8 +4334,8 @@ def plot_i(im, Prior, nit, chi2_dict, **kwargs):
         imarr = (imarr + np.max(imarr)/dynamic_range)**(gamma)
 
     plt.imshow(imarr, cmap=plt.get_cmap(cmap), interpolation=interpolation)
-    xticks = obsh.ticks(Prior.xdim, Prior.psize/ehc.RADPERAS/1e-6)
-    yticks = obsh.ticks(Prior.ydim, Prior.psize/ehc.RADPERAS/1e-6)
+    xticks =  obs_helpers.ticks(Prior.xdim, Prior.psize/const_def.RADPERAS/1e-6)
+    yticks =  obs_helpers.ticks(Prior.ydim, Prior.psize/const_def.RADPERAS/1e-6)
     plt.xticks(xticks[0], xticks[1])
     plt.yticks(yticks[0], yticks[1])
     plt.xlabel(r'Relative RA ($\mu$as)')
