@@ -1,56 +1,46 @@
-# load.py
-# functions to load observation & image data from files
-#
-#    Copyright (C) 2018 Andrew Chael
-#
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+Functions to load observation & image data from files
 
-from __future__ import division
-from __future__ import print_function
+Copyright (C) 2022 Andrew Chael
 
-from builtins import str
-from builtins import range
-from builtins import object
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-import numpy as np
-import astropy.io.fits as fits
-import datetime
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>
+"""
+
 import os
-import copy
 import sys
-import time as ttime
+import copy
+import time
 import h5py
-
-import ehtim.obsdata
-import ehtim.image
-import ehtim.array
-import ehtim.movie
-import ehtim.vex
-import ehtim.observing
-
-import ehtim.io.oifits
-import ehtim.const_def as ehc
-
+import datetime
+import numpy as np
+from  astropy.io import fits
+sys.path.extend(["../", "../io"])
+import obsdata
+import image
+import array
+import movie
+import vex
+import observing
+import io.oifits
+import const_def
 import warnings
+
+
 warnings.filterwarnings("ignore", message="Mean of empty slice")
 warnings.filterwarnings("ignore", message="invalid value encountered in true_divide")
 
-##################################################################################################
 # Vex IO
-##################################################################################################
-
-
 def load_vex(fname):
     """Read in .vex files.
        Assumes there is only 1 MODE in vex file
@@ -62,13 +52,13 @@ def load_vex(fname):
             vex (Vex): Vex file object
     """
     print("Loading vexfile: ", fname)
-    return ehtim.vex.Vex(fname)
+    return vex.Vex(fname)
 
 
 ##################################################################################################
 # Image IO
 ##################################################################################################
-def load_im_txt(filename, pulse=ehc.PULSE_DEFAULT, polrep='stokes', pol_prim='I', zero_pol=True):
+def load_im_txt(filename, pulse=const_def.PULSE_DEFAULT, polrep='stokes', pol_prim='I', zero_pol=True):
     """Read in an image from a text file.
 
        Args:
@@ -98,10 +88,10 @@ def load_im_txt(filename, pulse=ehc.PULSE_DEFAULT, polrep='stokes', pol_prim='I'
     rf = float(file.readline().split()[2]) * 1e9
     xdim = file.readline().split()
     xdim_p = int(xdim[2])
-    psize_x = float(xdim[4]) * ehc.RADPERAS / xdim_p
+    psize_x = float(xdim[4]) * const_def.RADPERAS / xdim_p
     ydim = file.readline().split()
     ydim_p = int(ydim[2])
-    psize_y = float(ydim[4]) * ehc.RADPERAS / ydim_p
+    psize_y = float(ydim[4]) * const_def.RADPERAS / ydim_p
     file.close()
 
     if psize_x != psize_y:
@@ -110,7 +100,7 @@ def load_im_txt(filename, pulse=ehc.PULSE_DEFAULT, polrep='stokes', pol_prim='I'
     # Load the data, convert to list format, make object
     datatable = np.loadtxt(filename, dtype=float)
     image = datatable[:, 2].reshape(ydim_p, xdim_p)
-    outim = ehtim.image.Image(image, psize_x, ra, dec,
+    outim = image.Image(image, psize_x, ra, dec,
                               rf=rf, source=src, mjd=mjd, time=time, pulse=pulse,
                               polrep='stokes', pol_prim='I')
 
@@ -180,15 +170,15 @@ def load_im_hdf5(filename):
     poldat = np.flip(poldat.transpose((1, 0, 2)), axis=0)
 
     # Make a guess at the source based on distance and optionally fall back on mass
-    src = ehc.SOURCE_DEFAULT
+    src = const_def.SOURCE_DEFAULT
     if dsource > 4.e25 and dsource < 6.2e25:
         src = "M87"
     elif dsource > 2.45e22 and dsource < 2.6e22:
         src = "SgrA"
 
     # Fill in information according to the source
-    ra = ehc.RA_DEFAULT
-    dec = ehc.DEC_DEFAULT
+    ra = const_def.RA_DEFAULT
+    dec = const_def.DEC_DEFAULT
     if src == "SgrA":
         ra = 17.76112247
         dec = -28.992189444
@@ -198,14 +188,14 @@ def load_im_hdf5(filename):
 
     # Process image to set proper dimensions
     fovmuas = DX / dsource * lunit * 2.06265e11
-    psize_x = ehc.RADPERUAS * fovmuas / nx
+    psize_x = const_def.RADPERUAS * fovmuas / nx
 
     Iim = poldat[:, :, 0] * jyscale
     Qim = poldat[:, :, 1] * jyscale
     Uim = poldat[:, :, 2] * jyscale
     Vim = poldat[:, :, 3] * jyscale
 
-    outim = ehtim.image.Image(Iim, psize_x, ra, dec, rf=rf, source=src,
+    outim = image.Image(Iim, psize_x, ra, dec, rf=rf, source=src,
                               polrep='stokes', pol_prim='I', time=time)
     outim.add_qu(Qim, Uim)
     outim.add_v(Vim)
@@ -213,7 +203,7 @@ def load_im_hdf5(filename):
     return outim
 
 
-def load_im_fits(filename, aipscc=False, pulse=ehc.PULSE_DEFAULT,
+def load_im_fits(filename, aipscc=False, pulse=const_def.PULSE_DEFAULT,
                  punit="deg", polrep='stokes', pol_prim=None, zero_pol=True):
     """Read in an image from a FITS file.
 
@@ -233,13 +223,13 @@ def load_im_fits(filename, aipscc=False, pulse=ehc.PULSE_DEFAULT,
 
     # Radian or Degree?
     if punit == "deg":
-        pscl = ehc.DEGREE
+        pscl = const_def.DEGREE
     elif punit == "rad":
         pscl = 1.0
     elif punit == "uas":
-        pscl = ehc.RADPERUAS
+        pscl = const_def.RADPERUAS
     elif punit == "mas":
-        pscl = ehc.RADPERUAS * 1000.0
+        pscl = const_def.RADPERUAS * 1000.0
 
     # Open the FITS file
     hdulist = fits.open(filename)
@@ -311,7 +301,7 @@ def load_im_fits(filename, aipscc=False, pulse=ehc.PULSE_DEFAULT,
 
         print("loading the AIPS CC table.")
         print("force the pulse function to be the delta function.")
-        pulse = ehtim.observing.pulses.deltaPulse2D
+        pulse = observing.pulses.deltaPulse2D
 
         # get the source brightness brightness ifromation
         flux = aipscctab.data["FLUX"]
@@ -411,7 +401,7 @@ def load_im_fits(filename, aipscc=False, pulse=ehc.PULSE_DEFAULT,
         image *= normalizer
 
     # make image object in Stokes I
-    outim = ehtim.image.Image(image, psize_x, ra, dec,
+    outim = image.Image(image, psize_x, ra, dec,
                               rf=rf, source=src, mjd=mjd, time=time, pulse=pulse,
                               polrep='stokes', pol_prim='I')
 
@@ -420,14 +410,14 @@ def load_im_fits(filename, aipscc=False, pulse=ehc.PULSE_DEFAULT,
         Noutcomp = 0
         for i in range(len(flux_gs)):
             # make sure the aipscc table gaussian is within the FOV
-            if ((deltax_gs[i] * ehc.DEGREE < outim.fovx() / 2.0) and
-                (deltay_gs[i] * ehc.DEGREE < outim.fovy() / 2.0) and
-                    (maj_gs[i] * ehc.DEGREE * 3 < (np.min([outim.fovx(), outim.fovy()]) / 2.0))):
+            if ((deltax_gs[i] * const_def.DEGREE < outim.fovx() / 2.0) and
+                (deltay_gs[i] * const_def.DEGREE < outim.fovy() / 2.0) and
+                    (maj_gs[i] * const_def.DEGREE * 3 < (np.min([outim.fovx(), outim.fovy()]) / 2.0))):
                 # add a gaussian component with the specified flux and location
-                outim = outim.add_gauss(flux_gs[i], (maj_gs[i] * ehc.DEGREE, min_gs[i] * ehc.DEGREE,
-                                                     pa_gs[i] * ehc.DEGREE,
-                                                     deltax_gs[i] * ehc.DEGREE,
-                                                     deltay_gs[i] * ehc.DEGREE))
+                outim = outim.add_gauss(flux_gs[i], (maj_gs[i] * const_def.DEGREE, min_gs[i] * const_def.DEGREE,
+                                                     pa_gs[i] * const_def.DEGREE,
+                                                     deltax_gs[i] * const_def.DEGREE,
+                                                     deltay_gs[i] * const_def.DEGREE))
             else:
                 Noutcomp += 1
         print("added %d CC gaussian components." % (len(flux_gs)))
@@ -503,7 +493,7 @@ def load_im_fits(filename, aipscc=False, pulse=ehc.PULSE_DEFAULT,
 # Old version  for arizona  datasets
 # def load_movie_hdf5(file_name, framedur_sec=1, psize=-1,
 #                    ra=17.761122472222223, dec=-28.992189444444445, rf=230e9, source='SgrA',
-#                    pulse=ehc.PULSE_DEFAULT, polrep='stokes', pol_prim=None,  zero_pol=True):
+#                    pulse=const_def.PULSE_DEFAULT, polrep='stokes', pol_prim=None,  zero_pol=True):
 
 
 #    """Read in a movie from an hdf5 file and create a Movie object.
@@ -533,7 +523,7 @@ def load_im_fits(filename, aipscc=False, pulse=ehc.PULSE_DEFAULT,
 
 #    # TODO: currently no frame times  stored in  hdf5!
 #    framedur_hr = framedur/3600.
-#    mjd0 = ehc.MJD_DEFAULT
+#    mjd0 = const_def.MJD_DEFAULT
 #    hour0 =  0
 #    nframes = len(frames)
 #    tstart = hour0
@@ -543,7 +533,7 @@ def load_im_fits(filename, aipscc=False, pulse=ehc.PULSE_DEFAULT,
 #    movie =  Movie(frames, times,
 #                   psize, ra, dec, rf=rf,
 #                   polrep=polrep, pol_prim=pol_prim,
-# source=source, mjd=ehc.MJD_DEFAULT, pulse=pulse)
+# source=source, mjd=const_def.MJD_DEFAULT, pulse=pulse)
 
 #    if zero_pol:
 #        for pol in list(movie._movdict.keys()):
@@ -554,8 +544,8 @@ def load_im_fits(filename, aipscc=False, pulse=ehc.PULSE_DEFAULT,
 #    return movie
 
 
-def load_movie_hdf5(file_name, pulse=ehc.PULSE_DEFAULT, interp=ehc.INTERP_DEFAULT,
-                    bounds_error=ehc.BOUNDS_ERROR):
+def load_movie_hdf5(file_name, pulse=const_def.PULSE_DEFAULT, interp=const_def.INTERP_DEFAULT,
+                    bounds_error=const_def.BOUNDS_ERROR):
     """Read in a movie from an hdf5 file and create a Movie object.
 
        Args:
@@ -586,7 +576,7 @@ def load_movie_hdf5(file_name, pulse=ehc.PULSE_DEFAULT, interp=ehc.INTERP_DEFAUL
         times = file['times'][:]
         frames = file[pol_prim][:]
 
-        movie = ehtim.movie.Movie(frames, times,
+        movie = movie.Movie(frames, times,
                                   psize, ra, dec, rf=rf,
                                   interp=interp, bounds_error=bounds_error,
                                   polrep=polrep, pol_prim=pol_prim,
@@ -611,9 +601,9 @@ def load_movie_hdf5(file_name, pulse=ehc.PULSE_DEFAULT, interp=ehc.INTERP_DEFAUL
     return movie
 
 
-def load_movie_txt(basename, nframes, framedur=-1, pulse=ehc.PULSE_DEFAULT,
+def load_movie_txt(basename, nframes, framedur=-1, pulse=const_def.PULSE_DEFAULT,
                    polrep='stokes', pol_prim=None, zero_pol=True,
-                   interp=ehc.INTERP_DEFAULT, bounds_error=ehc.BOUNDS_ERROR):
+                   interp=const_def.INTERP_DEFAULT, bounds_error=const_def.BOUNDS_ERROR):
     """Read in a movie from text files and create a Movie object.
 
        Args:
@@ -660,15 +650,15 @@ def load_movie_txt(basename, nframes, framedur=-1, pulse=ehc.PULSE_DEFAULT,
         for kk in range(len(imlist)):
             imlist[kk].time = times[kk]
 
-    out_mov = ehtim.movie.merge_im_list(imlist, framedur=framedur,
+    out_mov = movie.merge_im_list(imlist, framedur=framedur,
                                         interp=interp, bounds_error=bounds_error)
 
     return out_mov
 
 
 def load_movie_fits(basename, nframes, framedur=-1,
-                    interp=ehc.INTERP_DEFAULT, bounds_error=ehc.BOUNDS_ERROR,
-                    pulse=ehc.PULSE_DEFAULT, polrep='stokes', pol_prim=None, zero_pol=True):
+                    interp=const_def.INTERP_DEFAULT, bounds_error=const_def.BOUNDS_ERROR,
+                    pulse=const_def.PULSE_DEFAULT, polrep='stokes', pol_prim=None, zero_pol=True):
     """Read in a movie from fits files and create a Movie object.
 
        Args:
@@ -720,16 +710,16 @@ def load_movie_fits(basename, nframes, framedur=-1,
         for kk in range(len(imlist)):
             imlist[kk].time = times[kk]
 
-    out_mov = ehtim.movie.merge_im_list(imlist, framedur=framedur,
+    out_mov = movie.merge_im_list(imlist, framedur=framedur,
                                         interp=interp, bounds_error=bounds_error)
 
     return out_mov
 
 
 def load_movie_dat(basename, nframes, startframe=0, framedur_sec=1, psize=-1,
-                   interp=ehc.INTERP_DEFAULT, bounds_error=ehc.BOUNDS_ERROR,
-                   ra=ehc.RA_DEFAULT, dec=ehc.DEC_DEFAULT, rf=ehc.RF_DEFAULT,
-                   pulse=ehc.PULSE_DEFAULT):
+                   interp=const_def.INTERP_DEFAULT, bounds_error=const_def.BOUNDS_ERROR,
+                   ra=const_def.RA_DEFAULT, dec=const_def.DEC_DEFAULT, rf=const_def.RF_DEFAULT,
+                   pulse=const_def.PULSE_DEFAULT):
     """Read in a movie from dat files and create a Movie object.
 
         Args:
@@ -776,7 +766,7 @@ def load_movie_dat(basename, nframes, startframe=0, framedur_sec=1, psize=-1,
     tstop = hour0 + framedur_hr * nframes
     times = np.linspace(tstart, tstop, nframes)
 
-    return(ehtim.movie.Movie(sim, times, psize, ra, dec, rf,
+    return(movie.Movie(sim, times, psize, ra, dec, rf,
                              interp=interp, bounds_error=bounds_error))
 
 
@@ -813,12 +803,12 @@ def load_array_txt(filename, ephemdir='ephemeris'):
         tdataout = [np.array((x[0], float(x[1]), float(x[2]), float(x[3]), float(x[4]), float(x[4]),
                               0.0, 0.0,
                               0.0, 0.0, 0.0),
-                             dtype=ehc.DTARR) for x in tdata]
+                             dtype=const_def.DTARR) for x in tdata]
     elif tdata.shape[1] == 13:
         tdataout = [np.array((x[0], float(x[1]), float(x[2]), float(x[3]), float(x[4]), float(x[5]),
                               float(x[9]) + 1j * float(x[10]), float(x[11]) + 1j * float(x[12]),
                               float(x[6]), float(x[7]), float(x[8])),
-                             dtype=ehc.DTARR) for x in tdata]
+                             dtype=const_def.DTARR) for x in tdata]
 
     tdataout = np.array(tdataout)
     edata = {}
@@ -834,7 +824,7 @@ def load_array_txt(filename, ephemdir='ephemeris'):
             except IOError:
                 raise Exception('no ephemeris file %s !' % ephempath)
 
-    return ehtim.array.Array(tdataout, ephem=edata)
+    return array.Array(tdataout, ephem=edata)
 
 ##################################################################################################
 # Observation IO
@@ -887,16 +877,16 @@ def load_obs_txt(filename, polrep='stokes'):
     while line[1][0] != "-":
         if len(line) == 6:
             tarr.append(np.array((line[1], line[2], line[3], line[4], line[5], line[5],
-                                  0, 0, 0, 0, 0), dtype=ehc.DTARR))
+                                  0, 0, 0, 0, 0), dtype=const_def.DTARR))
         elif len(line) == 14:
             tarr.append(np.array((line[1], line[2], line[3], line[4], line[5], line[6],
                                   float(line[10]) + 1j * float(line[11]),
                                   float(line[12]) + 1j * float(line[13]),
-                                  line[7], line[8], line[9]), dtype=ehc.DTARR))
+                                  line[7], line[8], line[9]), dtype=const_def.DTARR))
         else:
             raise Exception("Telescope header doesn't have the right number of fields!")
         line = file.readline().split()
-    tarr = np.array(tarr, dtype=ehc.DTARR)
+    tarr = np.array(tarr, dtype=const_def.DTARR)
 
     # read the polrep
     line = file.readline().split()
@@ -923,15 +913,15 @@ def load_obs_txt(filename, polrep='stokes'):
             tau2 = float(row[7])
             u = float(row[8])
             v = float(row[9])
-            vis1 = float(row[10]) * np.exp(1j * float(row[11]) * ehc.DEGREE)
+            vis1 = float(row[10]) * np.exp(1j * float(row[11]) * const_def.DEGREE)
             if datatable.shape[1] == 19:
-                vis2 = float(row[12]) * np.exp(1j * float(row[13]) * ehc.DEGREE)
-                vis3 = float(row[14]) * np.exp(1j * float(row[15]) * ehc.DEGREE)
-                vis4 = float(row[16]) * np.exp(1j * float(row[17]) * ehc.DEGREE)
+                vis2 = float(row[12]) * np.exp(1j * float(row[13]) * const_def.DEGREE)
+                vis3 = float(row[14]) * np.exp(1j * float(row[15]) * const_def.DEGREE)
+                vis4 = float(row[16]) * np.exp(1j * float(row[17]) * const_def.DEGREE)
                 sigma1 = sigma2 = sigma3 = sigma4 = float(row[18])
             elif datatable.shape[1] == 17:
-                vis2 = float(row[12]) * np.exp(1j * float(row[13]) * ehc.DEGREE)
-                vis3 = float(row[14]) * np.exp(1j * float(row[15]) * ehc.DEGREE)
+                vis2 = float(row[12]) * np.exp(1j * float(row[13]) * const_def.DEGREE)
+                vis3 = float(row[14]) * np.exp(1j * float(row[15]) * const_def.DEGREE)
                 vis4 = 0 + 0j
                 sigma1 = sigma2 = sigma3 = sigma4 = float(row[16])
             elif datatable.shape[1] == 15:
@@ -948,10 +938,10 @@ def load_obs_txt(filename, polrep='stokes'):
             tau2 = float(row[5])
             u = float(row[6])
             v = float(row[7])
-            vis1 = float(row[8]) * np.exp(1j * float(row[9]) * ehc.DEGREE)
-            vis2 = float(row[10]) * np.exp(1j * float(row[11]) * ehc.DEGREE)
-            vis3 = float(row[12]) * np.exp(1j * float(row[13]) * ehc.DEGREE)
-            vis4 = float(row[14]) * np.exp(1j * float(row[15]) * ehc.DEGREE)
+            vis1 = float(row[8]) * np.exp(1j * float(row[9]) * const_def.DEGREE)
+            vis2 = float(row[10]) * np.exp(1j * float(row[11]) * const_def.DEGREE)
+            vis3 = float(row[12]) * np.exp(1j * float(row[13]) * const_def.DEGREE)
+            vis4 = float(row[14]) * np.exp(1j * float(row[15]) * const_def.DEGREE)
             sigma1 = float(row[16])
             sigma2 = float(row[17])
             sigma3 = float(row[18])
@@ -963,15 +953,15 @@ def load_obs_txt(filename, polrep='stokes'):
         if polrep_orig == 'stokes':
             datatable2.append(np.array((time, tint, t1, t2, tau1, tau2,
                                         u, v, vis1, vis2, vis3, vis4,
-                                        sigma1, sigma2, sigma3, sigma4), dtype=ehc.DTPOL_STOKES))
+                                        sigma1, sigma2, sigma3, sigma4), dtype=const_def.DTPOL_STOKES))
         elif polrep_orig == 'circ':
             datatable2.append(np.array((time, tint, t1, t2, tau1, tau2,
                                         u, v, vis1, vis2, vis3, vis4,
-                                        sigma1, sigma2, sigma3, sigma4), dtype=ehc.DTPOL_CIRC))
+                                        sigma1, sigma2, sigma3, sigma4), dtype=const_def.DTPOL_CIRC))
 
     # Return the data object
     datatable2 = np.array(datatable2)
-    out = ehtim.obsdata.Obsdata(ra, dec, rf, bw, datatable2, tarr, polrep=polrep_orig,
+    out = obsdata.Obsdata(ra, dec, rf, bw, datatable2, tarr, polrep=polrep_orig,
                                 source=src, mjd=mjd,
                                 ampcal=ampcal, phasecal=phasecal, opacitycal=opacitycal,
                                 dcal=dcal, frcal=frcal)
@@ -1035,7 +1025,7 @@ def load_obs_uvfits(filename, polrep='stokes', flipbl=False,
             str(tnames[i]), xyz[i][0], xyz[i][1], xyz[i][2],
             sefdr[i], sefdl[i], dr[i], dl[i],
             fr_par[i], fr_el[i], fr_off[i]),
-        dtype=ehc.DTARR) for i in range(len(tnames))]
+        dtype=const_def.DTARR) for i in range(len(tnames))]
 
     tarr = np.array(tarr)
 
@@ -1359,9 +1349,9 @@ def load_obs_uvfits(filename, polrep='stokes', flipbl=False,
 
     # determine correct data type:
     if polrep_uvfits == 'circ':
-        dtpol_out = ehc.DTPOL_CIRC
+        dtpol_out = const_def.DTPOL_CIRC
     elif polrep_uvfits == 'stokes':
-        dtpol_out = ehc.DTPOL_STOKES
+        dtpol_out = const_def.DTPOL_STOKES
 
     datatable = []
     for i in range(len(times)):
@@ -1376,7 +1366,7 @@ def load_obs_uvfits(filename, polrep='stokes', flipbl=False,
                          ))
 
     datatable = np.array(datatable)
-    obs = ehtim.obsdata.Obsdata(ra, dec, rf, bw, datatable, tarr, polrep=polrep_uvfits,
+    obs = obsdata.Obsdata(ra, dec, rf, bw, datatable, tarr, polrep=polrep_uvfits,
                                 source=src, mjd=mjd, scantable=scantable)
 
     # TODO -- this is bad, ack. use masks!
@@ -1412,7 +1402,7 @@ def load_obs_oifits(filename, flux=1.0):
     print('Warning: load_obs_oifits does NOT currently support polarimetric data!')
 
     # open oifits file and get visibilities
-    oidata = ehtim.io.oifits.open(filename)
+    oidata = io.oifits.open(filename)
     vis_data = oidata.vis
 
     # get source info
@@ -1438,10 +1428,10 @@ def load_obs_oifits(filename, flux=1.0):
     wavelength = oidata.wavelength[list(oidata.wavelength.keys())[0]].eff_wave
     nWavelengths = wavelength.shape[0]
     bandpass = oidata.wavelength[list(oidata.wavelength.keys())[0]].eff_band
-    frequency = ehc.C / wavelength
+    frequency = const_def.C / wavelength
 
     # TODO: this result seems wrong...
-    bw = np.mean(2 * (np.sqrt(bandpass**2 * frequency**2 + ehc.C**2) - ehc.C) / bandpass)
+    bw = np.mean(2 * (np.sqrt(bandpass**2 * frequency**2 + const_def.C**2) - const_def.C) / bandpass)
     rf = np.mean(frequency)
 
     # get the u-v point for each visibility
@@ -1457,7 +1447,7 @@ def load_obs_oifits(filename, flux=1.0):
                        )  # convert to single number
 
     # return timeobs
-    time = np.transpose(np.tile(np.array([(ttime.mktime((timeobs[i] +
+    time = np.transpose(np.tile(np.array([(time.mktime((timeobs[i] +
                                                         datetime.timedelta(days=1)).timetuple())
                                            ) / (60.0 * 60.0)
                                           for i in range(len(timeobs))]), [nWavelengths, 1]))
@@ -1511,20 +1501,20 @@ def load_obs_oifits(filename, flux=1.0):
                            flux * vis[i], qvis[i], uvis[i], vvis[i],
                            flux * amperr[i], flux * amperr[i], flux * amperr[i], flux * amperr[i]
                            ) for i in range(len(vis))
-                          ], dtype=ehc.DTPOL_STOKES)
+                          ], dtype=const_def.DTPOL_STOKES)
 
     tarr = np.array([(sites[i], x[i], y[i], z[i],
                       sefdr[i], sefdl[i], dr[i], dl[i],
                       fr_par[i], fr_el[i], fr_off[i],
                       ) for i in range(nAntennas)
-                     ], dtype=ehc.DTARR)
+                     ], dtype=const_def.DTARR)
 
     # return object
-    return ehtim.obsdata.Obsdata(ra, dec, rf, bw, datatable, tarr,
+    return obsdata.Obsdata(ra, dec, rf, bw, datatable, tarr,
                                  polrep='stokes', source=src, mjd=time[0])
 
 def load_obs_maps(arrfile, obsspec, ifile, qfile=0, ufile=0, vfile=0,
-                  src=ehc.SOURCE_DEFAULT, mjd=ehc.MJD_DEFAULT, ampcal=False, phasecal=False):
+                  src=const_def.SOURCE_DEFAULT, mjd=const_def.MJD_DEFAULT, ampcal=False, phasecal=False):
     """Read an observation from a maps text file and return an Obsdata object.
 
        Args:
@@ -1546,7 +1536,7 @@ def load_obs_maps(arrfile, obsspec, ifile, qfile=0, ufile=0, vfile=0,
     tdata = np.loadtxt(arrfile, dtype=bytes).astype(str)
     tdata = [np.array((x[0], float(x[1]), float(x[2]), float(x[3]),
                        float(x[-1]), float(x[-1]), 0., 0., 0., 0., 0.),
-                      dtype=ehc.DTARR) for x in tdata]
+                      dtype=const_def.DTARR) for x in tdata]
     tdata = np.array(tdata)
 
     # Read parameters from the obs_spec
@@ -1591,11 +1581,11 @@ def load_obs_maps(arrfile, obsspec, ifile, qfile=0, ufile=0, vfile=0,
             t2 = tdata[int(bl[1]) - 1]['site']
             tau1 = 0.
             tau2 = 0.
-            vis = float(line[7][:-1]) * np.exp(1j * float(line[8][:-1]) * ehc.DEGREE)
+            vis = float(line[7][:-1]) * np.exp(1j * float(line[8][:-1]) * const_def.DEGREE)
             sigma = float(line[10])
             datatable.append(np.array((time, tint, t1, t2, tau1, tau2,
                                        u, v, vis, 0.0, 0.0, 0.0,
-                                       sigma, 0.0, 0.0, 0.0), dtype=ehc.DTPOL_STOKES))
+                                       sigma, 0.0, 0.0, 0.0), dtype=const_def.DTPOL_STOKES))
 
     datatable = np.array(datatable)
 
@@ -1608,7 +1598,7 @@ def load_obs_maps(arrfile, obsspec, ifile, qfile=0, ufile=0, vfile=0,
             line = line.split()
             if not (line[0] in ['UV', 'Scan', '\n']):
                 datatable[i]['qvis'] = float(line[7][:-1]) * \
-                    np.exp(1j * float(line[8][:-1]) * ehc.DEGREE)
+                    np.exp(1j * float(line[8][:-1]) * const_def.DEGREE)
                 datatable[i]['qsigma'] = float(line[10])
                 i += 1
 
@@ -1619,7 +1609,7 @@ def load_obs_maps(arrfile, obsspec, ifile, qfile=0, ufile=0, vfile=0,
             line = line.split()
             if not (line[0] in ['UV', 'Scan', '\n']):
                 datatable[i]['uvis'] = float(line[7][:-1]) * \
-                    np.exp(1j * float(line[8][:-1]) * ehc.DEGREE)
+                    np.exp(1j * float(line[8][:-1]) * const_def.DEGREE)
                 datatable[i]['usigma'] = float(line[10])
                 i += 1
 
@@ -1630,12 +1620,12 @@ def load_obs_maps(arrfile, obsspec, ifile, qfile=0, ufile=0, vfile=0,
             line = line.split()
             if not (line[0] in ['UV', 'Scan', '\n']):
                 datatable[i]['vvis'] = float(line[7][:-1]) * \
-                    np.exp(1j * float(line[8][:-1]) * ehc.DEGREE)
+                    np.exp(1j * float(line[8][:-1]) * const_def.DEGREE)
                 datatable[i]['vsigma'] = float(line[10])
                 i += 1
 
     # Return the data object
-    return ehtim.obsdata.Obsdata(ra, dec, rf, bw, datatable, tdata,
+    return obsdata.Obsdata(ra, dec, rf, bw, datatable, tdata,
                                  source=src, mjd=mjd, polrep='stokes')
 
 def load_dtype_txt(obs, filename, dtype='cphase'):
@@ -1683,7 +1673,7 @@ def load_dtype_txt(obs, filename, dtype='cphase'):
             cphase = float(row[10])
             sigmacp = float(row[11])
             datatable2.append(np.array((time, t1, t2, t3, u1, v1, u2, v2,
-                                        u3, v3, cphase, sigmacp), dtype=ehc.DTCPHASE))
+                                        u3, v3, cphase, sigmacp), dtype=const_def.DTCPHASE))
         obs.cphase = np.array(datatable2)
 
     elif dtype == 'logcamp':
@@ -1705,7 +1695,7 @@ def load_dtype_txt(obs, filename, dtype='cphase'):
             logcamp = float(row[13])
             sigmalogcamp = float(row[14])
             datatable2.append(np.array((time, t1, t2, t3, t4, u1, v1, u2, v2, u3,
-                                        v3, u4, v4, logcamp, sigmalogcamp), dtype=ehc.DTCAMP))
+                                        v3, u4, v4, logcamp, sigmalogcamp), dtype=const_def.DTCAMP))
         obs.logcamp = np.array(datatable2)
 
     elif dtype == 'camp':
@@ -1727,7 +1717,7 @@ def load_dtype_txt(obs, filename, dtype='cphase'):
             camp = float(row[13])
             sigmacamp = float(row[14])
             datatable2.append(np.array((time, t1, t2, t3, t4, u1, v1, u2, v2,
-                                        u3, v3, u4, v4, camp, sigmacamp), dtype=ehc.DTCAMP))
+                                        u3, v3, u4, v4, camp, sigmacamp), dtype=const_def.DTCAMP))
         obs.camp = np.array(datatable2)
 
     elif dtype == 'bs':
@@ -1746,7 +1736,7 @@ def load_dtype_txt(obs, filename, dtype='cphase'):
             bispec = float(row[10])
             sigmab = float(row[11])
             datatable2.append(np.array((time, t1, t2, t3, u1, v1, u2,
-                                        v2, u3, v3, bispec, sigmab), dtype=ehc.DTBIS))
+                                        v2, u3, v3, bispec, sigmab), dtype=const_def.DTBIS))
         obs.bispec = np.array(datatable2)
 
     elif dtype == 'amp':
@@ -1760,7 +1750,7 @@ def load_dtype_txt(obs, filename, dtype='cphase'):
             v = float(row[5])
             amp = float(row[6])
             sigmaamp = float(row[7])
-            datatable2.append(np.array((time, tint, t1, t2, u, v, amp, sigmaamp), dtype=ehc.DTAMP))
+            datatable2.append(np.array((time, tint, t1, t2, u, v, amp, sigmaamp), dtype=const_def.DTAMP))
         obs.amp = np.array(datatable2)
 
     else:
