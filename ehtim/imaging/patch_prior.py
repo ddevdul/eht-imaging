@@ -1,22 +1,19 @@
-# patch_prior.py
-#
-# Create a "prior" image for vlbi imaging by cleaning the input image.
-# Image cleaning is done by breaking the image into patches and cleaning each one
-# individually by assigning it a cluster in the input Gaussian mixture model and
-# using a weiner filter to denoise each patch.
-# These ideas are based on Expected Patch Log Likelihood patch prior work
-#
-# Code Author: Katie Bouman
-# Date: June 1, 2016
+"""
+Create a "prior" image for vlbi imaging by cleaning the input image.
+The image cleaning is done by breaking the image into patches and cleaning each one
+individually by assigning it a cluster in the input Gaussian mixture model and
+using a weiner filter to denoise each patch. These ideas are based on Expected 
+Patch Log Likelihood patch prior work
 
-from __future__ import division
-from builtins import map
-from builtins import range
+Code Author: Katie Bouman
+Date: June 1, 2016
+"""
 
-from matplotlib import pyplot as plt
-import ehtim.image as image
+
+import image
 import scipy.io
 import numpy as np
+
 
 def patchPrior(im, beta, patchPriorFile='naturalPrior.mat', patchSize=8 ):
 
