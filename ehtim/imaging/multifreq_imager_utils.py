@@ -1,45 +1,28 @@
-# multifreq_imager_utils.py
-# imager functions for multifrequency VLBI data
-#
-#    Copyright (C) 2018 Andrew Chael
-#
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+Imager functions for multifrequency VLBI data
 
+Copyright (C) 2022 Andrew Chael
 
-from __future__ import division
-from __future__ import print_function
-from __future__ import absolute_import
-from builtins import range
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-import string
-import time
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
 import numpy as np
-import scipy.optimize as opt
-import scipy.ndimage as nd
-import scipy.ndimage.filters as filt
-import matplotlib.pyplot as plt
+
 try:
     from pynfft.nfft import NFFT
 except ImportError:
-    print("Warning: No NFFT installed! Cannot use nfft functions")
-
-import ehtim.image as image
-from . import linearize_energy as le
-
-from ehtim.const_def import *
-from ehtim.observing.obs_helpers import *
-from ehtim.statistics.dataframes import *
+    print("Warning: Depricated!!!")
 
 NORM_REGULARIZER = True 
 EPSILON = 1.e-12
