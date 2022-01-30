@@ -1,10 +1,8 @@
-from __future__ import division
-
+import sys
+import image
 import numpy as np
-import ehtim.image as image
-
-from ehtim.const_def import *
-from ehtim.observing.obs_helpers import *
+sys.path.extend(["../", "../observings"])
+from observing import obs_helpers
 
 
 def linearized_bi(x0, A3, bispec, sigs, nPixels, alpha=100, reg="patch"):
@@ -43,9 +41,9 @@ def linearizedSol_bs(Obsdata, currImage, Prior, alpha=100, beta=100, reg="patch"
     
 
     # Compute the fourier matrices
-    A3 = (ftmatrix(currImage.psize, currImage.xdim, currImage.ydim, uv1, pulse=currImage.pulse),
-          ftmatrix(currImage.psize, currImage.xdim, currImage.ydim, uv2, pulse=currImage.pulse),
-          ftmatrix(currImage.psize, currImage.xdim, currImage.ydim, uv3, pulse=currImage.pulse)
+    A3 = (obs_helpers.ftmatrix(currImage.psize, currImage.xdim, currImage.ydim, uv1, pulse=currImage.pulse),
+          obs_helpers.ftmatrix(currImage.psize, currImage.xdim, currImage.ydim, uv2, pulse=currImage.pulse),
+          obs_helpers.ftmatrix(currImage.psize, currImage.xdim, currImage.ydim, uv3, pulse=currImage.pulse)
          )
 
     Alin, blin = computeLinTerms_bi(currImage.imvec, A3, bispec, sigs, currImage.xdim*currImage.ydim, alpha=alpha, reg=reg)
