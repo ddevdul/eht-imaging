@@ -1,55 +1,43 @@
-# pol_imager_utils.py
-# General imager functions for polarimetric VLBI data
-#
-#    Copyright (C) 2018 Andrew Chael
-#
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+General imager functions for polarimetric VLBI data
 
+Copyright (C) 2022 Andrew Chael
 
-#TODO
-# FIX NFFTS for  m and for p -- offsets? imag?
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-from __future__ import division
-from __future__ import print_function
-from __future__ import absolute_import
-from builtins import range
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
-import string
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
+# TODO: FIX NFFTS for  m and for p -- offsets? imag?
+
+import sys
 import time
-import copy
 import numpy as np
-import scipy.optimize as opt
-import scipy.ndimage as nd
-import scipy.ndimage.filters as filt
+import scipy.optimize
 import matplotlib.pyplot as plt
+sys.path.extend(["../", "../observing"])
+import image
+import const_def # import *
+from observing import obs_helpers # import *
 try:
     from pynfft.nfft import NFFT
 except ImportError:
-    print("Warning: No NFFT installed! Cannot use nfft functions")
-from  scipy.special import jv
-
-import ehtim.image as image
-from . import linearize_energy as le
-
-from ehtim.const_def import *
-from ehtim.observing.obs_helpers import *
+    print("Warning: Depricated!!!")
 
 ##################################################################################################
 # Constants & Definitions
 ##################################################################################################
 
-NORM_REGULARIZER = False #ANDREW TODO change this default in the future
+NORM_REGULARIZER = False # ANDREW TODO change this default in the future
 
 MAXLS = 100 # maximum number of line searches in L-BFGS-B
 NHIST = 100 # number of steps to store for hessian approx
@@ -315,10 +303,10 @@ def pol_imager_func(Obsdata, InitIm, Prior,
     optdict = {'maxiter':maxit, 'ftol':stop, 'maxcor':NHIST,'maxls':MAXLS,'gtol':stop,'maxfun':1.e100} # minimizer dict params
     tstart = time.time()
     if grads:
-        res = opt.minimize(objfunc, xinit, method='L-BFGS-B', jac=objgrad,callback=plotcur,
+        res =scipy.optimize.minimize(objfunc, xinit, method='L-BFGS-B', jac=objgrad,callback=plotcur,
                            options=optdict)
     else:
-        res = opt.minimize(objfunc, xinit, method='L-BFGS-B',
+        res =scipy.optimize.minimize(objfunc, xinit, method='L-BFGS-B',
                            options=optdict, callback=plotcur)
 
 
@@ -1300,7 +1288,7 @@ def chisqdata_pvis(Obsdata, Prior, mask):
     uv = np.hstack((data_arr['u'].reshape(-1,1), data_arr['v'].reshape(-1,1)))
     vis = data_arr['pvis']
     sigma = data_arr['psigma']
-    A = ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv, pulse=Prior.pulse, mask=mask)
+    A = obs_helpers.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv, pulse=Prior.pulse, mask=mask)
 
     return (vis, sigma, A)
 
@@ -1309,8 +1297,8 @@ def chisqdata_pvis_nfft(Obsdata, Prior, mask, **kwargs):
     """
 
     # unpack keyword args
-    fft_pad_factor = kwargs.get('fft_pad_factor',FFT_PAD_DEFAULT)
-    p_rad = kwargs.get('p_rad', GRIDDER_P_RAD_DEFAULT)
+    fft_pad_factor = kwargs.get('fft_pad_factor',const_def.FFT_PAD_DEFAULT)
+    p_rad = kwargs.get('p_rad', const_def.GRIDDER_P_RAD_DEFAULT)
 
     # unpack data
     data_arr = Obsdata.unpack(['u','v','pvis','psigma'], conj=True)
@@ -1334,7 +1322,7 @@ def chisqdata_m(Obsdata, Prior, mask):
     uv = np.hstack((mdata['u'].reshape(-1,1), mdata['v'].reshape(-1,1)))
     m = mdata['m']
     sigmam = mdata['msigma']
-    A = ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv, pulse=Prior.pulse, mask=mask)
+    A = obs_helpers.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv, pulse=Prior.pulse, mask=mask)
 
     return (m, sigmam, A)
 
@@ -1343,8 +1331,8 @@ def chisqdata_m_nfft(Obsdata, Prior, mask, **kwargs):
     """
 
     # unpack keyword args
-    fft_pad_factor = kwargs.get('fft_pad_factor',FFT_PAD_DEFAULT)
-    p_rad = kwargs.get('p_rad', GRIDDER_P_RAD_DEFAULT)
+    fft_pad_factor = kwargs.get('fft_pad_factor',const_def.FFT_PAD_DEFAULT)
+    p_rad = kwargs.get('p_rad', const_def.GRIDDER_P_RAD_DEFAULT)
 
     # unpack data
     mdata = Obsdata.unpack(['u','v','m','msigma'], conj=True)
@@ -1371,9 +1359,9 @@ def chisqdata_pbs(Obsdata, Prior, mask):
     bi = biarr['bispec']
     sigma = biarr['sigmab']
 
-    A3 = (ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv1, pulse=Prior.pulse, mask=mask),
-          ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv2, pulse=Prior.pulse, mask=mask),
-          ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv3, pulse=Prior.pulse, mask=mask)
+    A3 = (obs_helpers.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv1, pulse=Prior.pulse, mask=mask),
+          obs_helpers.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv2, pulse=Prior.pulse, mask=mask),
+          obs_helpers.ftmatrix(Prior.psize, Prior.xdim, Prior.ydim, uv3, pulse=Prior.pulse, mask=mask)
          )
 
     return (bi, sigma, A3)
@@ -1383,8 +1371,8 @@ def chisqdata_pbs_nfft(Obsdata, Prior, mask):
     """
 
     # unpack keyword args
-    fft_pad_factor = kwargs.get('fft_pad_factor',FFT_PAD_DEFAULT)
-    p_rad = kwargs.get('p_rad', GRIDDER_P_RAD_DEFAULT)
+    fft_pad_factor = kwargs.get('fft_pad_factor',const_def.FFT_PAD_DEFAULT)
+    p_rad = kwargs.get('p_rad', const_def.GRIDDER_P_RAD_DEFAULT)
 
     # unpack data
     biarr = Obsdata.bispectra(mode="all", vtype='rlvis', count="min")
@@ -1468,8 +1456,8 @@ def plot_m(imtuple, Prior, nit, chi2_dict, **kwargs):
                headaxislength=20, headwidth=1, headlength=.01, minlength=0, minshaft=1,
                width=.005*Prior.xdim, units='x', pivot='mid', color='w', angles='uv', scale=1.1/thin)
 
-    xticks = ticks(Prior.xdim, Prior.psize/RADPERAS/1e-6)
-    yticks = ticks(Prior.ydim, Prior.psize/RADPERAS/1e-6)
+    xticks = obs_helpers.ticks(Prior.xdim, Prior.psize/const_def.RADPERAS/1e-6)
+    yticks = obs_helpers.ticks(Prior.ydim, Prior.psize/const_def.RADPERAS/1e-6)
     plt.xticks(xticks[0], xticks[1])
     plt.yticks(yticks[0], yticks[1])
     plt.xlabel('Relative RA ($\mu$as)')
