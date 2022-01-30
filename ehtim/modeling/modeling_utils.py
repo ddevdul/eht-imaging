@@ -1,57 +1,44 @@
-# modeling_utils.py
-# General modeling functions for total intensity VLBI data
-#
-#    Copyright (C) 2020 Michael Johnson
-#
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+General modeling functions for total intensity VLBI data
 
-## TODO ##
-# >> return jonesdict for all data types <- requires significant modification to eht-imaging
-# >> Deal with nans in fitting (mask chisqdata) <- mostly done
-# >> Add optional transform for leakage and gains
+Copyright (C) 2022 Michael Johnson
 
-from __future__ import division
-from __future__ import print_function
-from __future__ import absolute_import
-from builtins import range
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-import string
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+TODO
+>> return jonesdict for all data types <- requires significant modification to eht-imaging
+>> Deal with nans in fitting (mask chisqdata) <- mostly done
+>> Add optional transform for leakage and gains
+""""
+
+
+import sys
 import time
 import numpy as np
-import scipy.optimize as opt
-import scipy.ndimage as nd
-import scipy.ndimage.filters as filt
-import matplotlib.pyplot as plt
-import scipy.special as sps
-import scipy.stats as stats
-import copy 
+import scipy.optimize
+import scipy.special
+sys.path.extend(["../", "../observing", "../statistics"])
+import obsdata
+import image
+import model
+import caltable
+import const_def # import *
+from observing import obs_helpers # import *
+from statistics import dataframes # import *
 
-import ehtim.obsdata as obsdata
-import ehtim.image as image
-import ehtim.model as model
-import ehtim.caltable as caltable
 
-from ehtim.const_def import *
-from ehtim.observing.obs_helpers import *
-from ehtim.statistics.dataframes import *
-
-from IPython import display
-
-##################################################################################################
 # Constants & Definitions
-##################################################################################################
-
 MAXLS = 100  # maximum number of line searches in L-BFGS-B
 NHIST = 100  # number of steps to store for hessian approx
 MAXIT = 100  # maximum number of iterations
@@ -70,9 +57,9 @@ nit = 0       # global variable to track the iteration number in the plotting ca
 globdict = {} # global dictionary with all parameters related to the model fitting (mainly for efficient parallelization, but also very useful for debugging)
 
 # Details on each fitted parameter (convenience rescaling factor and associated unit)
-PARAM_DETAILS = {'F0':[1.,'Jy'], 'FWHM':[RADPERUAS,'uas'], 'FWHM_maj':[RADPERUAS,'uas'], 'FWHM_min':[RADPERUAS,'uas'], 
-                 'd':[RADPERUAS,'uas'], 'PA':[np.pi/180.,'deg'], 'alpha':[RADPERUAS,'uas'], 'ff':[1.,''], 
-                 'x0':[RADPERUAS,'uas'], 'y0':[RADPERUAS,'uas'], 'stretch':[1.,''], 'stretch_PA':[np.pi/180.,'deg'], 
+PARAM_DETAILS = {'F0':[1.,'Jy'], 'FWHM':[const_def.RADPERUAS,'uas'], 'FWHM_maj':[const_def.RADPERUAS,'uas'], 'FWHM_min':[const_def.RADPERUAS,'uas'], 
+                 'd':[const_def.RADPERUAS,'uas'], 'PA':[np.pi/180.,'deg'], 'alpha':[const_def.RADPERUAS,'uas'], 'ff':[1.,''], 
+                 'x0':[const_def.RADPERUAS,'uas'], 'y0':[const_def.RADPERUAS,'uas'], 'stretch':[1.,''], 'stretch_PA':[np.pi/180.,'deg'], 
                  'arg':[np.pi/180.,'deg'], 'evpa':[np.pi/180.,'deg']}
 
 GAIN_PRIOR_DEFAULT = {'prior_type':'lognormal','sigma':0.1,'mu':0.0,'shift':-1.0} 
@@ -97,11 +84,11 @@ def cdf(x, prior_params):
         return (  (x > prior_params['max']) * 1.0   
                 + (x > prior_params['min']) * (x < prior_params['max']) * (x - prior_params['min'])/(prior_params['max'] - prior_params['min']))
     elif prior_params['prior_type'] == 'gauss':
-        return 0.5 * (1.0 + sps.erf( (x - prior_params['mean'])/(prior_params['std'] * np.sqrt(2.0)) ))
+        return 0.5 * (1.0 + scipy.special.erf( (x - prior_params['mean'])/(prior_params['std'] * np.sqrt(2.0)) ))
     elif prior_params['prior_type'] == 'exponential':
         return (1.0 - np.exp(-x/prior_params['std'])) * (x >= 0.0)
     elif prior_params['prior_type'] == 'lognormal':
-        return (x > prior_params['shift']) * (0.5 * sps.erfc( (prior_params['mu'] - np.log(x - prior_params['shift']))/(np.sqrt(2.0) * prior_params['sigma'])))
+        return (x > prior_params['shift']) * (0.5 * scipy.special.erfc( (prior_params['mu'] - np.log(x - prior_params['shift']))/(np.sqrt(2.0) * prior_params['sigma'])))
     elif prior_params['prior_type'] == 'positive':
         raise Exception('CDF is not defined for prior type "positive"')
     elif prior_params['prior_type'] == 'none':
@@ -124,11 +111,11 @@ def cdf_inverse(x, prior_params):
     if prior_params['prior_type'] == 'flat':
         return prior_params['min'] * (1.0 - x) + prior_params['max'] * x
     elif prior_params['prior_type'] == 'gauss':
-        return prior_params['mean'] - np.sqrt(2.0) * prior_params['std'] * sps.erfcinv(2.0 * x)
+        return prior_params['mean'] - np.sqrt(2.0) * prior_params['std'] * scipy.special.erfcinv(2.0 * x)
     elif prior_params['prior_type'] == 'exponential':
         return prior_params['std'] * np.log(1.0/(1.0 - x))
     elif prior_params['prior_type'] == 'lognormal':
-        return np.exp( prior_params['mu'] - np.sqrt(2.0) * prior_params['sigma'] * sps.erfcinv(2.0 * x)) + prior_params['shift']
+        return np.exp( prior_params['mu'] - np.sqrt(2.0) * prior_params['sigma'] * scipy.special.erfcinv(2.0 * x)) + prior_params['shift']
     elif prior_params['prior_type'] == 'positive':
         raise Exception('CDF is not defined for prior type "positive"')
     elif prior_params['prior_type'] == 'none':
@@ -414,11 +401,11 @@ def compute_likelihood_constants(d1, d2, d3, sigma1, sigma2, sigma3):
     # If using closure phase, the sigma is given in degrees, not radians!
     # Use the correct von Mises normalization if using closure phase
     if d1 in ['cphase','cphase_diag']:
-        ln_norm1 = -np.sum(np.log(2.0*np.pi*sps.ive(0, 1.0/(sigma1 * DEGREE)**2)))
+        ln_norm1 = -np.sum(np.log(2.0*np.pi*scipy.special.ive(0, 1.0/(sigma1 * const_def.DEGREE)**2)))
     if d2 in ['cphase','cphase_diag']:
-        ln_norm2 = -np.sum(np.log(2.0*np.pi*sps.ive(0, 1.0/(sigma2 * DEGREE)**2)))
+        ln_norm2 = -np.sum(np.log(2.0*np.pi*scipy.special.ive(0, 1.0/(sigma2 * const_def.DEGREE)**2)))
     if d3 in ['cphase','cphase_diag']:
-        ln_norm3 = -np.sum(np.log(2.0*np.pi*sps.ive(0, 1.0/(sigma3 * DEGREE)**2)))
+        ln_norm3 = -np.sum(np.log(2.0*np.pi*scipy.special.ive(0, 1.0/(sigma3 * const_def.DEGREE)**2)))
 
     if d1 in ['vis','bs','m','pvis','rrll','llrr','lrll','rlll','lrrr','rlrr','polclosure']:
         alpha_d1 *= 2
@@ -1229,7 +1216,7 @@ def modeler_func(Obsdata, model_init, model_prior,
             else:
                 min_kwargs[key] = minimizer_kwargs[key]
 
-        res = opt.minimize(objfunc, param_init, jac=objgrad, callback=plotcur, bounds=bounds, **min_kwargs)
+        res = scipy.optimize.minimize(objfunc, param_init, jac=objgrad, callback=plotcur, bounds=bounds, **min_kwargs)
     elif minimizer_func == 'scipy.optimize.dual_annealing':
         min_kwargs = {}
         min_kwargs['local_search_options'] = {'jac':objgrad, 
@@ -1243,13 +1230,13 @@ def modeler_func(Obsdata, model_init, model_prior,
                 continue
             min_kwargs[key] = minimizer_kwargs[key]
               
-        res = opt.dual_annealing(objfunc, x0=param_init, bounds=bounds, callback=plotcur, **min_kwargs)
+        res = scipy.optimize.dual_annealing(objfunc, x0=param_init, bounds=bounds, callback=plotcur, **min_kwargs)
     elif minimizer_func == 'scipy.optimize.basinhopping':
         min_kwargs = {}
         for key in minimizer_kwargs.keys():
             min_kwargs[key] = minimizer_kwargs[key]
 
-        res = opt.basinhopping(objfunc, param_init, **min_kwargs)  
+        res = scipy.optimize.basinhopping(objfunc, param_init, **min_kwargs)  
     elif minimizer_func == 'pymc3':
         ########################
         ## Sample using pymc3 ##
@@ -1846,8 +1833,8 @@ def chisqgrad_bs(model, uv, bis, sigma, fit_pol=False, fit_cpol=False, fit_leaka
 
 def chisq_cphase(model, uv, clphase, sigma, jonesdict=None):
     """Closure Phases (normalized) chi-squared"""
-    clphase = clphase * DEGREE
-    sigma = sigma * DEGREE
+    clphase = clphase * const_def.DEGREE
+    sigma = sigma * const_def.DEGREE
 
     V1 = model.sample_uv(uv[0][:,0],uv[0][:,1])
     V2 = model.sample_uv(uv[1][:,0],uv[1][:,1])
@@ -1859,8 +1846,8 @@ def chisq_cphase(model, uv, clphase, sigma, jonesdict=None):
 
 def chisqgrad_cphase(model, uv, clphase, sigma, fit_pol=False, fit_cpol=False, fit_leakage=False, jonesdict=None):
     """The gradient of the closure phase chi-squared"""
-    clphase = clphase * DEGREE
-    sigma = sigma * DEGREE
+    clphase = clphase * const_def.DEGREE
+    sigma = sigma * const_def.DEGREE
 
     V1 = model.sample_uv(uv[0][:,0],uv[0][:,1])
     V2 = model.sample_uv(uv[1][:,0],uv[1][:,1])
@@ -1880,8 +1867,8 @@ def chisqgrad_cphase(model, uv, clphase, sigma, fit_pol=False, fit_cpol=False, f
 
 def chisq_cphase_diag(model, uv, clphase_diag, sigma, jonesdict=None):
     """Diagonalized closure phases (normalized) chi-squared"""
-    clphase_diag = np.concatenate(clphase_diag) * DEGREE
-    sigma = np.concatenate(sigma) * DEGREE
+    clphase_diag = np.concatenate(clphase_diag) * const_def.DEGREE
+    sigma = np.concatenate(sigma) * const_def.DEGREE
 
     uv_diag = uv[0]
     tform_mats = uv[1]
@@ -1901,8 +1888,8 @@ def chisq_cphase_diag(model, uv, clphase_diag, sigma, jonesdict=None):
 
 def chisqgrad_cphase_diag(model, uv, clphase_diag, sigma, fit_pol=False, fit_cpol=False, fit_leakage=False, jonesdict=None):
     """The gradient of the diagonalized closure phase chi-squared"""
-    clphase_diag = clphase_diag * DEGREE
-    sigma = sigma * DEGREE
+    clphase_diag = clphase_diag * const_def.DEGREE
+    sigma = sigma * const_def.DEGREE
 
     uv_diag = uv[0]
     tform_mats = uv[1]
@@ -2202,9 +2189,9 @@ def apply_systematic_noise_snrcut(data_arr, systematic_noise, snrcut, pol):
        returns: (uv, vis, amp, sigma)
     """
 
-    vtype=vis_poldict[pol]
-    atype=amp_poldict[pol]
-    etype=sig_poldict[pol]
+    vtype=const_def.vis_poldict[pol]
+    atype=const_def.amp_poldict[pol]
+    etype=const_def.sig_poldict[pol]
 
     t1 = data_arr['t1']
     t2 = data_arr['t2']
@@ -2292,9 +2279,9 @@ def chisqdata_vis(Obsdata, pol='I', **kwargs):
     weighting = kwargs.get('weighting','natural')
 
     # unpack data
-    vtype=vis_poldict[pol]
-    atype=amp_poldict[pol]
-    etype=sig_poldict[pol]
+    vtype=const_def.vis_poldict[pol]
+    atype=const_def.amp_poldict[pol]
+    etype=const_def.sig_poldict[pol]
     data_arr = Obsdata.unpack(['t1','t2','u','v',vtype,atype,etype,'el1','el2','par_ang1','par_ang2'], debias=debias)
     (uv, vis, amp, sigma) = apply_systematic_noise_snrcut(data_arr, systematic_noise, snrcut, pol)
 
@@ -2313,9 +2300,9 @@ def chisqdata_amp(Obsdata, pol='I',**kwargs):
     weighting = kwargs.get('weighting','natural')
 
     # unpack data
-    vtype=vis_poldict[pol]
-    atype=amp_poldict[pol]
-    etype=sig_poldict[pol]
+    vtype=const_def.vis_poldict[pol]
+    atype=const_def.amp_poldict[pol]
+    etype=const_def.sig_poldict[pol]
     if (Obsdata.amp is None) or (len(Obsdata.amp)==0) or pol!='I':
         data_arr = Obsdata.unpack(['time','t1','t2','u','v',vtype,atype,etype,'el1','el2','par_ang1','par_ang2'], debias=debias)
 
@@ -2353,7 +2340,7 @@ def chisqdata_bs(Obsdata, pol='I',**kwargs):
     weighting = kwargs.get('weighting','natural')
 
     # unpack data
-    vtype=vis_poldict[pol]
+    vtype=const_def.vis_poldict[pol]
     if (Obsdata.bispec is None) or (len(Obsdata.bispec)==0) or pol!='I':
         biarr = Obsdata.bispectra(mode="all", vtype=vtype, count=count,snrcut=snrcut)
 
@@ -2396,7 +2383,7 @@ def chisqdata_cphase(Obsdata, pol='I',**kwargs):
     weighting = kwargs.get('weighting','natural')
 
     # unpack data
-    vtype=vis_poldict[pol]
+    vtype=const_def.vis_poldict[pol]
     if (Obsdata.cphase is None) or (len(Obsdata.cphase)==0) or pol!='I':
         clphasearr = Obsdata.c_phases(mode="all", vtype=vtype, count=count, uv_min=uv_min, snrcut=snrcut)
     else: #TODO precomputed with not Stokes I
@@ -2436,7 +2423,7 @@ def chisqdata_cphase_diag(Obsdata, pol='I',**kwargs):
     snrcut = kwargs.get('snrcut',0.)
 
     # unpack data
-    vtype=vis_poldict[pol]
+    vtype=const_def.vis_poldict[pol]
     clphasearr = Obsdata.c_phases_diag(vtype=vtype,count=count,snrcut=snrcut,uv_min=uv_min)
 
     # loop over timestamps
@@ -2491,7 +2478,7 @@ def chisqdata_camp(Obsdata, pol='I',**kwargs):
     weighting = kwargs.get('weighting','natural')
 
     # unpack data & mask low snr points
-    vtype=vis_poldict[pol]
+    vtype=const_def.vis_poldict[pol]
     if (Obsdata.camp is None) or (len(Obsdata.camp)==0) or pol!='I':
         clamparr = Obsdata.c_amplitudes(mode='all', count=count, ctype='camp', debias=debias, snrcut=snrcut)
     else: # TODO -- pre-computed  with not stokes I? 
@@ -2501,7 +2488,7 @@ def chisqdata_camp(Obsdata, pol='I',**kwargs):
         clamparr = Obsdata.camp
         # reduce to a minimal set
         if count!='max':       
-            clamparr = reduce_quad_minimal(Obsdata, clamparr, ctype='camp')
+            clamparr = obs_helpers.reduce_quad_minimal(Obsdata, clamparr, ctype='camp')
 
     uv1 = np.hstack((clamparr['u1'].reshape(-1,1), clamparr['v1'].reshape(-1,1)))
     uv2 = np.hstack((clamparr['u2'].reshape(-1,1), clamparr['v2'].reshape(-1,1)))
@@ -2529,7 +2516,7 @@ def chisqdata_logcamp(Obsdata, pol='I', **kwargs):
     weighting = kwargs.get('weighting','natural')
 
     # unpack data & mask low snr points
-    vtype=vis_poldict[pol]
+    vtype=const_def.vis_poldict[pol]
     if (Obsdata.logcamp is None) or (len(Obsdata.logcamp)==0)  or pol!='I':
         clamparr = Obsdata.c_amplitudes(mode='all', count=count, vtype=vtype, ctype='logcamp', debias=debias, snrcut=snrcut)
     else: # TODO -- pre-computed  with not stokes I? 
@@ -2539,7 +2526,7 @@ def chisqdata_logcamp(Obsdata, pol='I', **kwargs):
         clamparr = Obsdata.logcamp
         # reduce to a minimal set
         if count!='max':       
-            clamparr = reduce_quad_minimal(Obsdata, clamparr, ctype='logcamp')
+            clamparr = obs_helpers.reduce_quad_minimal(Obsdata, clamparr, ctype='logcamp')
 
     uv1 = np.hstack((clamparr['u1'].reshape(-1,1), clamparr['v1'].reshape(-1,1)))
     uv2 = np.hstack((clamparr['u2'].reshape(-1,1), clamparr['v2'].reshape(-1,1)))
@@ -2566,7 +2553,7 @@ def chisqdata_logcamp_diag(Obsdata, pol='I', **kwargs):
     debias = kwargs.get('debias',True)
 
     # unpack data & mask low snr points
-    vtype=vis_poldict[pol]
+    vtype=const_def.vis_poldict[pol]
     clamparr = Obsdata.c_log_amplitudes_diag(vtype=vtype,count=count,debias=debias,snrcut=snrcut)
 
     # loop over timestamps
