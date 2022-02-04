@@ -1,38 +1,33 @@
-# comp_plots.py
-# Make data plots with multiple observations,images etc.
-#
-#    Copyright (C) 2018 Andrew Chael
-#
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+Make data plots with multiple observations,images etc.
 
-from __future__ import division
-from __future__ import print_function
+Copyright (C) 2022 Andrew Chael
 
-from builtins import str
-from builtins import range
-from builtins import object
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-import numpy as np
-import numpy.matlib as matlib
-import matplotlib.pyplot as plt
-import itertools as it
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
+import sys
 import copy
+import numpy as np
+from numpy import matlib
+import matplotlib.pyplot as plt
+import itertools
+sys.path.extend(["../"])
+from obsdata import merge_obs
+import const_def
 
-from ehtim.obsdata import merge_obs
-import ehtim.const_def as ehc
-
-COLORLIST = ehc.SCOLORS
+COLORLIST = const_def.SCOLORS
 
 ##################################################################################################
 # Plotters
@@ -43,7 +38,7 @@ def plotall_compare(obslist, imlist, field1, field2,
                     conj=False, debias=False, sgrscat=False,
                     ang_unit='deg', timetype='UTC', ttype='nfft',
                     axis=False, rangex=False, rangey=False, snrcut=0.,
-                    clist=COLORLIST, legendlabels=None, markersize=ehc.MARKERSIZE,
+                    clist=COLORLIST, legendlabels=None, markersize=const_def.MARKERSIZE,
                     export_pdf="", grid=False, ebar=True,
                     axislabels=True, legend=True, show=True):
     """Plot data from observations compared to ground truth from an image on the same axes.
@@ -109,7 +104,7 @@ def plot_bl_compare(obslist, imlist, site1, site2, field,
                     debias=False, sgrscat=False,
                     ang_unit='deg', timetype='UTC', ttype='nfft',
                     axis=False, rangex=False, rangey=False, snrcut=0.,
-                    clist=COLORLIST, legendlabels=None, markersize=ehc.MARKERSIZE,
+                    clist=COLORLIST, legendlabels=None, markersize=const_def.MARKERSIZE,
                     export_pdf="", grid=False, ebar=True,
                     axislabels=True, legend=True, show=True):
     """Plot data from multiple observations vs time on a single baseline on the same axes.
@@ -175,7 +170,7 @@ def plot_cphase_compare(obslist, imlist, site1, site2, site3,
                         vtype='vis', cphases=[], force_recompute=False,
                         ang_unit='deg', timetype='UTC', ttype='nfft',
                         axis=False, rangex=False, rangey=False, snrcut=0.,
-                        clist=COLORLIST, legendlabels=None, markersize=ehc.MARKERSIZE,
+                        clist=COLORLIST, legendlabels=None, markersize=const_def.MARKERSIZE,
                         export_pdf="", grid=False, ebar=True,
                         axislabels=True, legend=True, show=True):
     """Plot closure phase on a triangle compared to ground truth from an image on the same axes.
@@ -263,7 +258,7 @@ def plot_camp_compare(obslist, imlist, site1, site2, site3, site4,
                       vtype='vis', ctype='camp', camps=[], force_recompute=False,
                       debias=False, sgrscat=False, timetype='UTC', ttype='nfft',
                       axis=False, rangex=False, rangey=False, snrcut=0.,
-                      clist=COLORLIST, legendlabels=None, markersize=ehc.MARKERSIZE,
+                      clist=COLORLIST, legendlabels=None, markersize=const_def.MARKERSIZE,
                       export_pdf="", grid=False, ebar=True,
                       axislabels=True, legend=True, show=True):
     """Plot closure amplitude on a triangle vs time from multiple observations on the same axes.
@@ -723,7 +718,7 @@ def plotall_obs_im_cphases(obs, imlist,
     sites = []
     for i in range(0, len(obs.tarr)):
         sites.append(obs.tarr[i][0])
-    uniqueclosure_tri = list(it.combinations(sites, 3))
+    uniqueclosure_tri = list(itertools.combinations(sites, 3))
 
     # generate data
     cphases_obs = obs.c_phases(mode='all', count='max', vtype=vtype)
@@ -765,9 +760,9 @@ def plotall_obs_im_cphases(obs, imlist,
                                                               uniqueclosure_tri[c][2],
                                                               vtype=vtype, ang_unit='deg',
                                                               cphases=cphases_all[i])
-                    resids = (cphases_obs_tri['cphase'] - cphases_model_tri['cphase'])*ehc.DEGREE
+                    resids = (cphases_obs_tri['cphase'] - cphases_model_tri['cphase'])*const_def.DEGREE
                     chisq_tri = np.sum((1.0 - np.cos(resids)) /
-                                       ((cphases_obs_tri['sigmacp']*ehc.DEGREE)**2))
+                                       ((cphases_obs_tri['sigmacp']*const_def.DEGREE)**2))
                     chisq_tri *= (2.0/len(cphases_obs_tri))
                     printstr += " chisq%i: %0.2f" % (i, chisq_tri)
                 print(printstr)
@@ -801,7 +796,7 @@ def plotall_obs_im_cphases(obs, imlist,
 ##################################################################################################
 
 
-def prep_plot_lists(obslist, imlist, clist=ehc.SCOLORS, legendlabels=None,
+def prep_plot_lists(obslist, imlist, clist=const_def.SCOLORS, legendlabels=None,
                     sgrscat=False, ttype='nfft'):
     """Return observation, color, marker, legend lists for comp plots"""
 
