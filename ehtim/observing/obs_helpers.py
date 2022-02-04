@@ -25,7 +25,7 @@ import numpy
 import itertools
 from scipy import ndimage
 from scipy.spatial import distance
-sys.path.append("../")
+sys.path.extend(["../"])
 import const_def
 import warnings
 try:
