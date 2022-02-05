@@ -1,41 +1,30 @@
-# comparisons.py
-# Image Consistency Comparisons
-#
-#    Copyright (C) 2018 Katie Bouman
-#
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+Image Consistency Comparisons
 
-from __future__ import division
-from __future__ import print_function
+Copyright (C) 2022 Katie Bouman
 
-from builtins import str
-from builtins import range
-from builtins import object
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
 
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.offsetbox import (OffsetImage, AnnotationBbox)
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from itertools import cycle
-
-try:
-    import networkx as nx
-except ImportError:
-    print("Warning: networkx not installed! Cannot use image_agreements()")
-
-
-import ehtim.const_def as ehc
+import networkx
+sys.path.extend(["../"])
+import const_def
 
 
 def image_consistency(imarr, beamparams, metric='nxcorr',
@@ -115,12 +104,12 @@ def image_agreements(imarr, beamparams, metric_mtx, fracsteps, cutoff=0.95):
         consistant = zip(*cuttoffidx)
 
         # make graph
-        G = nx.Graph()
+        G = networkx.Graph()
         for i in range(len(consistant)):
             G.add_edge(consistant[i][0], consistant[i][1])
 
         # find all cliques
-        cliques = list(nx.find_cliques(G))
+        cliques = list(networkx.find_cliques(G))
         # print(cliques)
 
         cliques_fraclevels.append(cliques)
@@ -228,7 +217,7 @@ def generate_consistency_plot(clique_fraclevels, im_clique_fraclevels, zoom=0.1,
     ax.spines['bottom'].set_visible(False)
 
     ax.set_title('Blurred comparison of all images; cutoff={0}, fov (uas)={1}'.format(
-        str(cutoff), str(im_clique_fraclevels[-1][-1].fovx()/ehc.RADPERUAS)))
+        str(cutoff), str(im_clique_fraclevels[-1][-1].fovx()/const_def.RADPERUAS)))
 
 #     for item in [fig, ax]:
 #         item.patch.set_visible(False)
