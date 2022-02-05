@@ -1,39 +1,33 @@
-# caltable.py
-# a calibration table class
-#
-#    Copyright (C) 2018 Andrew Chael
-#
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+a calibration table class
 
-from __future__ import division
-from __future__ import print_function
+Copyright (C) 2022 Andrew Chael
 
-from builtins import str
-from builtins import range
-from builtins import object
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
+import os
+import sys
+import copy
 import numpy as np
 import matplotlib.pyplot as plt
-import os
-import copy
 import scipy.interpolate
-
+sys.path.extend(["ehtim/"])
 import ehtim.io.save
 import ehtim.io.load
-
-import ehtim.const_def as ehc
-import ehtim.observing.obs_helpers as obsh
+import ehtim.const_def
+from ehtim.observing import obs_helpers
 
 
 ##################################################################################################
@@ -60,7 +54,7 @@ class Caltable(object):
     """
 
     def __init__(self, ra, dec, rf, bw, datadict, tarr,
-                 source=ehc.SOURCE_DEFAULT, mjd=ehc.MJD_DEFAULT, timetype='UTC'):
+                 source=ehtim.const_def.SOURCE_DEFAULT, mjd=ehtim.const_def.MJD_DEFAULT, timetype='UTC'):
         """A Calibration Table.
 
            Args:
@@ -112,8 +106,8 @@ class Caltable(object):
                                 source=self.source, mjd=self.mjd, timetype=self.timetype)
         return new_caltable
 
-    def plot_dterms(self, sites='all', label=None, legend=True, clist=ehc.SCOLORS,
-                    rangex=False, rangey=False, markersize=2 * ehc.MARKERSIZE,
+    def plot_dterms(self, sites='all', label=None, legend=True, clist=ehtim.const_def.SCOLORS,
+                    rangex=False, rangey=False, markersize=2 * ehtim.const_def.MARKERSIZE,
                     show=True, grid=True, export_pdf=""):
 
         # sites
@@ -133,7 +127,7 @@ class Caltable(object):
 
     def plot_gains(self, sites, gain_type='amp', pol='R', label=None,
                    ang_unit='deg', timetype=False, yscale='log', legend=True,
-                   clist=ehc.SCOLORS, rangex=False, rangey=False, markersize=[ehc.MARKERSIZE],
+                   clist=ehtim.const_def.SCOLORS, rangex=False, rangey=False, markersize=[ehtim.const_def.MARKERSIZE],
                    show=True, grid=False, axislabels=True, axis=False, export_pdf=""):
         """Plot gains on multiple sites vs time.
            Args:
@@ -173,7 +167,7 @@ class Caltable(object):
             raise Exception("pol must be 'R' or 'L'")
 
         if ang_unit == 'deg':
-            angle = ehc.DEGREE
+            angle = ehtim.const_def.DEGREE
         else:
             angle = 1.0
 
@@ -200,9 +194,9 @@ class Caltable(object):
             site = sites[s]
             times = self.data[site]['time']
             if timetype in ['UTC', 'utc'] and self.timetype == 'GMST':
-                times = obsh.gmst_to_utc(times, self.mjd)
+                times = obs_helpers.gmst_to_utc(times, self.mjd)
             elif timetype in ['GMST', 'gmst'] and self.timetype == 'UTC':
-                times = obsh.utc_to_gmst(times, self.mjd)
+                times = obs_helpers.utc_to_gmst(times, self.mjd)
             if pol == 'R':
                 gains = self.data[site]['rscale']
             elif pol == 'L':
@@ -345,7 +339,7 @@ class Caltable(object):
             scandata = [caldata[0]]
             for i in range(1, len(caldata)):
                 if (caldata[i]['time'] - caldata[i - 1]['time']) * 3600 > maxdiff:
-                    scandata = np.array(scandata, dtype=ehc.DTCAL)
+                    scandata = np.array(scandata, dtype=ehtim.const_def.DTCAL)
                     gathered_data.append(scandata)
                     scandata = [caldata[i]]
                 else:
@@ -383,8 +377,8 @@ class Caltable(object):
                     preL = 1.
                     postL = 1.
 
-                valspre = np.array([(timepre, preR, preL)], dtype=ehc.DTCAL)
-                valspost = np.array([(timepost, postR, postL)], dtype=ehc.DTCAL)
+                valspre = np.array([(timepre, preR, preL)], dtype=ehtim.const_def.DTCAL)
+                valspost = np.array([(timepost, postR, postL)], dtype=ehtim.const_def.DTCAL)
 
                 gg = np.insert(gg, 0, valspre)
                 gg = np.append(gg, valspost)
@@ -575,7 +569,7 @@ class Caltable(object):
                     for i in range(len(times_merge)):
                         datatable.append(
                             np.array((times_merge[i], rscale_merge[i], lscale_merge[i]),
-                                     dtype=ehc.DTCAL))
+                                     dtype=ehtim.const_def.DTCAL))
                     data1[site] = np.array(datatable)
 
                 # sites not in both caltables
@@ -641,7 +635,7 @@ class Caltable(object):
                 gains_r_avg = np.mean(gains_r[np.array(times_stable == scan[0])])
 
                 # add them to a new datatable
-                datatable.append(np.array((scan[0], gains_r_avg, gains_l_avg), dtype=ehc.DTCAL))
+                datatable.append(np.array((scan[0], gains_r_avg, gains_l_avg), dtype=ehtim.const_def.DTCAL))
 
             datatables[site] = np.array(datatable)
 
@@ -708,7 +702,7 @@ def load_caltable(obs, datadir, sqrt_gains=False):
             if sqrt_gains:
                 rscale = rscale**.5
                 lscale = lscale**.5
-            datatable.append(np.array((time, rscale, lscale), dtype=ehc.DTCAL))
+            datatable.append(np.array((time, rscale, lscale), dtype=ehtim.const_def.DTCAL))
 
         datatables[site] = np.array(datatable)
     if len(datatables) > 0:
@@ -788,7 +782,7 @@ def make_caltable(obs, gains, sites, times):
         datatable = []
         for t in range(0, ntimes):
             gain = gains[s * ntele + t]
-            datatable.append(np.array((times[t], gain, gain), dtype=ehc.DTCAL))
+            datatable.append(np.array((times[t], gain, gain), dtype=ehtim.const_def.DTCAL))
         datatables[sites[s]] = np.array(datatable)
     if len(datatables) > 0:
         caltable = Caltable(obs.ra, obs.dec, obs.rf,
@@ -812,8 +806,8 @@ def relaxed_interp1d(x, y, **kwargs):
     return scipy.interpolate.interp1d(x, y, **kwargs)
 
 
-def plot_tarr_dterms(tarr, keys=None, label=None, legend=True, clist=ehc.SCOLORS,
-                     rangex=False, rangey=False, markersize=2 * ehc.MARKERSIZE,
+def plot_tarr_dterms(tarr, keys=None, label=None, legend=True, clist=ehtim.const_def.SCOLORS,
+                     rangex=False, rangey=False, markersize=2 * ehtim.const_def.MARKERSIZE,
                      show=True, grid=True, export_pdf="", auto_order=True):
 
     if auto_order:
@@ -881,16 +875,16 @@ def plot_tarr_dterms(tarr, keys=None, label=None, legend=True, clist=ehc.SCOLORS
 
 def plot_compare_gains(caltab1, caltab2, obs, sites='all', pol='R', gain_type='amp', ang_unit='deg',
                        scan_avg=True, site_name_dict=None, fontsize=13, legend_fontsize=13,
-                       yscale='log', legend=True, clist=ehc.SCOLORS,
+                       yscale='log', legend=True, clist=ehtim.const_def.SCOLORS,
                        rangex=False, rangey=False, scalefac=[0.9, 1.1],
-                       markersize=[2 * ehc.MARKERSIZE], show=True, grid=False,
+                       markersize=[2 * ehtim.const_def.MARKERSIZE], show=True, grid=False,
                        axislabels=True, remove_ticks=False, axis=False,
                        export_pdf=""):
 
     colors = iter(clist)
 
     if ang_unit == 'deg':
-        angle = ehc.DEGREE
+        angle = ehtim.const_def.DEGREE
     else:
         angle = 1.0
 
