@@ -1,43 +1,36 @@
-# summary_plots.py
-# Make data plots with multiple observations,images etc.
-#
-#    Copyright (C) 2018 Andrew Chael
-#
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+Make data plots with multiple observations,images etc.
+
+Copyright (C) 2022 Andrew Chael
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
 
 # TODO add systematic noise to individual closure quantities?
 
-from __future__ import division
-from __future__ import print_function
-
-from builtins import str
-from builtins import range
-from builtins import object
-
+import sys
+import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.backends.backend_pdf import PdfPages
-import datetime
-
-from ehtim.plotting.comp_plots import plotall_obs_compare
-from ehtim.plotting.comp_plots import plot_bl_obs_compare
-from ehtim.plotting.comp_plots import plot_cphase_obs_compare
-from ehtim.plotting.comp_plots import plot_camp_obs_compare
-from ehtim.calibrating.self_cal import self_cal as selfcal
-from ehtim.calibrating.pol_cal import leakage_cal, plot_leakage
-import ehtim.const_def as ehc
+sys.path.extend(["../"])
+from comp_plots import (plotall_obs_compare, plot_bl_obs_compare,
+plot_cphase_obs_compare, plot_camp_obs_compare)
+from calibrating.self_cal import self_cal
+from calibrating.pol_cal import leakage_cal, plot_leakage
+import const_def
 
 FONTSIZE = 22
 WSPACE = 0.8
@@ -163,7 +156,7 @@ def imgsum(im_or_mov, obs, obs_uncal, outname, outdir='.', title='imgsum', comme
         ax = plt.subplot(gs[0:2, 2:5])
         ax.set_title('Image blurred to nominal resolution')
         fwhm = obs.res()
-        print("blur_FWHM: ", fwhm/ehc.RADPERUAS)
+        print("blur_FWHM: ", fwhm/const_def.RADPERUAS)
         beamparams = [fwhm, fwhm, 0]
 
         imblur = im_display.blur_gauss(beamparams, frac=1.0)
@@ -239,7 +232,7 @@ def imgsum(im_or_mov, obs, obs_uncal, outname, outdir='.', title='imgsum', comme
                 ha='left', va='center', transform=ax.transAxes)
         ax.text(.23, .5, "%0.0f GHz" % (im_or_mov.rf/1.e9), fontsize=fs,
                 ha='left', va='center', transform=ax.transAxes)
-        ax.text(.23, .3, "%0.1f $\mu$as" % (im_display.fovx()/ehc.RADPERUAS), fontsize=fs,
+        ax.text(.23, .3, "%0.1f $\mu$as" % (im_display.fovx()/const_def.RADPERUAS), fontsize=fs,
                 ha='left', va='center', transform=ax.transAxes)
         ax.text(.23, .1, "%0.2f Jy" % flux, fontsize=fs,
                 ha='left', va='center', transform=ax.transAxes)
@@ -330,9 +323,9 @@ def imgsum(im_or_mov, obs, obs_uncal, outname, outdir='.', title='imgsum', comme
                                                          vtype='vis', ang_unit='deg',
                                                          cphases=cphases_model)
 
-                resids = (cphases_obs_tri['cphase'] - cphases_model_tri['cphase'])*ehc.DEGREE
+                resids = (cphases_obs_tri['cphase'] - cphases_model_tri['cphase'])*const_def.DEGREE
                 chisq_tri = 2*np.sum((1.0 - np.cos(resids)) /
-                                     ((cphases_obs_tri['sigmacp']*ehc.DEGREE)**2))
+                                     ((cphases_obs_tri['sigmacp']*const_def.DEGREE)**2))
 
                 npts = len(cphases_obs_tri)
                 data = [uniqueclosure_tri[c][0], uniqueclosure_tri[c]
@@ -464,7 +457,7 @@ def imgsum(im_or_mov, obs, obs_uncal, outname, outdir='.', title='imgsum', comme
         obs_tmp.data['sigma'] *= 0.
         ax = plotall_obs_compare([obs, obs_tmp],
                                  'uvdist', 'amp', axis=ax, legend=False,
-                                 clist=['k', ehc.SCOLORS[1]],
+                                 clist=['k', const_def.SCOLORS[1]],
                                  ttype=ttype, show=False, debias=debias,
                                  snrcut=snrcut_dict['amp'],
                                  ebar=ebar, markersize=MARKERSIZE)
@@ -493,7 +486,7 @@ def imgsum(im_or_mov, obs, obs_uncal, outname, outdir='.', title='imgsum', comme
             ax2 = plt.subplot(gs[0:2, 2:6])
             obs_tmp = obs_uncal.copy()
             for i in range(1):
-                ct = selfcal(obs_tmp, im_or_mov,
+                ct = self_cal(obs_tmp, im_or_mov,
                              method='amp', ttype=ttype,
                              caltable=True, gain_tol=.2,
                              processes=processes)
@@ -641,7 +634,7 @@ def imgsum(im_or_mov, obs, obs_uncal, outname, outdir='.', title='imgsum', comme
                 ax = plot_bl_obs_compare(obs_all, bl[0], bl[1], 'amp', rangey=[0, amax],
                                          markersize=MARKERSIZE, debias=debias,
                                          snrcut=snrcut_dict['amp'],
-                                         axis=ax, legend=False, clist=['k', ehc.SCOLORS[1]],
+                                         axis=ax, legend=False, clist=['k', const_def.SCOLORS[1]],
                                          ttype=ttype, show=False, ebar=ebar)
                 if ax is None:
                     continue
@@ -690,7 +683,7 @@ def imgsum(im_or_mov, obs, obs_uncal, outname, outdir='.', title='imgsum', comme
                 ax = plt.subplot(gs[2*i:2*(i+1), 2*j:2*(j+1)])
                 ax = plot_cphase_obs_compare(obs_all, tri[0], tri[1], tri[2], rangey=[-185, 185],
                                              cphases=cphases_all, markersize=MARKERSIZE,
-                                             axis=ax, legend=False, clist=['k', ehc.SCOLORS[1]],
+                                             axis=ax, legend=False, clist=['k', const_def.SCOLORS[1]],
                                              ttype=ttype, show=False, ebar=ebar)
                 if ax is None:
                     continue
@@ -739,7 +732,7 @@ def imgsum(im_or_mov, obs, obs_uncal, outname, outdir='.', title='imgsum', comme
                 ax = plot_camp_obs_compare(obs_all, quad[0], quad[1], quad[2], quad[3],
                                            markersize=MARKERSIZE,
                                            ctype='logcamp', rangey=[-cmax, cmax], camps=camps_all,
-                                           axis=ax, legend=False, clist=['k', ehc.SCOLORS[1]],
+                                           axis=ax, legend=False, clist=['k', const_def.SCOLORS[1]],
                                            ttype=ttype, show=False, ebar=ebar)
                 if ax is None:
                     continue
@@ -905,7 +898,7 @@ def imgsum_pol(im, obs, obs_uncal, outname,
         ax = plt.subplot(gs[0:2, 2:5])
         beamparams = obs_uncal.fit_beam()
         fwhm = np.min((np.abs(beamparams[0]), np.abs(beamparams[1])))
-        print("blur_FWHM: ", fwhm/ehc.RADPERUAS)
+        print("blur_FWHM: ", fwhm/const_def.RADPERUAS)
 
         imblur = im.blur_gauss(beamparams, frac=1.0, frac_pol=1.)
 
@@ -1025,7 +1018,7 @@ def imgsum_pol(im, obs, obs_uncal, outname,
                 ha='left', va='center', transform=ax.transAxes)
         ax.text(.23, .5, "%0.0f GHz" % (im.rf/1.e9), fontsize=fs,
                 ha='left', va='center', transform=ax.transAxes)
-        ax.text(.23, .3, "%0.1f $\mu$as" % (im.fovx()/ehc.RADPERUAS), fontsize=fs,
+        ax.text(.23, .3, "%0.1f $\mu$as" % (im.fovx()/const_def.RADPERUAS), fontsize=fs,
                 ha='left', va='center', transform=ax.transAxes)
         ax.text(.23, .1, "%0.2f Jy" % flux, fontsize=fs,
                 ha='left', va='center', transform=ax.transAxes)
@@ -1291,7 +1284,7 @@ def imgsum_pol(im, obs, obs_uncal, outname,
                 ax = plot_bl_obs_compare(obs_all, bl[0], bl[1], 'mamp', rangey=[0, amax],
                                          markersize=MARKERSIZE, debias=False,
                                          snrcut=snrcut_dict['m'],
-                                         axis=ax, legend=False, clist=['k', ehc.SCOLORS[1]],
+                                         axis=ax, legend=False, clist=['k', const_def.SCOLORS[1]],
                                          ttype='nfft', show=False, ebar=ebar)
                 ax.set_xlabel('')
                 j = 1
@@ -1300,7 +1293,7 @@ def imgsum_pol(im, obs, obs_uncal, outname,
 
                                          markersize=MARKERSIZE, debias=False,
                                          snrcut=snrcut_dict['m'],
-                                         axis=ax, legend=False, clist=['k', ehc.SCOLORS[1]],
+                                         axis=ax, legend=False, clist=['k', const_def.SCOLORS[1]],
                                          ttype='nfft', show=False, ebar=ebar)
                 i += 1
                 ax.set_xlabel('')
@@ -1346,7 +1339,7 @@ def imgsum_pol(im, obs, obs_uncal, outname,
                 ax = plot_bl_obs_compare(obs_all, bl[0], bl[1], 'pamp', rangey=[0, amax],
                                          markersize=MARKERSIZE, debias=False,
                                          snrcut=snrcut_dict['pvis'],
-                                         axis=ax, legend=False, clist=['k', ehc.SCOLORS[1]],
+                                         axis=ax, legend=False, clist=['k', const_def.SCOLORS[1]],
                                          ttype='nfft', show=False, ebar=ebar)
                 ax.set_xlabel('')
                 j = 1
@@ -1354,7 +1347,7 @@ def imgsum_pol(im, obs, obs_uncal, outname,
                 ax = plot_bl_obs_compare(obs_all, bl[0], bl[1], 'pphase', rangey=[-180, 180],
                                          markersize=MARKERSIZE, debias=False,
                                          snrcut=snrcut_dict['pvis'],
-                                         axis=ax, legend=False, clist=['k', ehc.SCOLORS[1]],
+                                         axis=ax, legend=False, clist=['k', const_def.SCOLORS[1]],
                                          ttype='nfft', show=False, ebar=ebar)
                 i += 1
                 ax.set_xlabel('')
@@ -1400,7 +1393,7 @@ def imgsum_pol(im, obs, obs_uncal, outname,
                 ax = plot_bl_obs_compare(obs_all, bl[0], bl[1], 'qamp', rangey=[0, amax],
                                          markersize=MARKERSIZE, debias=False,
                                          snrcut=snrcut_dict['qvis'],
-                                         axis=ax, legend=False, clist=['k', ehc.SCOLORS[1]],
+                                         axis=ax, legend=False, clist=['k', const_def.SCOLORS[1]],
                                          ttype='nfft', show=False, ebar=ebar)
                 ax.set_xlabel('')
                 j = 1
@@ -1408,7 +1401,7 @@ def imgsum_pol(im, obs, obs_uncal, outname,
                 ax = plot_bl_obs_compare(obs_all, bl[0], bl[1], 'qphase', rangey=[-180, 180],
                                          markersize=MARKERSIZE, debias=False,
                                          snrcut=snrcut_dict['qvis'],
-                                         axis=ax, legend=False, clist=['k', ehc.SCOLORS[1]],
+                                         axis=ax, legend=False, clist=['k', const_def.SCOLORS[1]],
                                          ttype='nfft', show=False, ebar=ebar)
                 i += 1
                 ax.set_xlabel('')
@@ -1454,7 +1447,7 @@ def imgsum_pol(im, obs, obs_uncal, outname,
                 ax = plot_bl_obs_compare(obs_all, bl[0], bl[1], 'uamp', rangey=[0, amax],
                                          markersize=MARKERSIZE, debias=False,
                                          snrcut=snrcut_dict['uvis'],
-                                         axis=ax, legend=False, clist=['k', ehc.SCOLORS[1]],
+                                         axis=ax, legend=False, clist=['k', const_def.SCOLORS[1]],
                                          ttype='nfft', show=False, ebar=ebar)
                 ax.set_xlabel('')
                 j = 1
@@ -1462,7 +1455,7 @@ def imgsum_pol(im, obs, obs_uncal, outname,
                 ax = plot_bl_obs_compare(obs_all, bl[0], bl[1], 'uphase', rangey=[-180, 180],
                                          markersize=MARKERSIZE, debias=False,
                                          snrcut=snrcut_dict['uvis'],
-                                         axis=ax, legend=False, clist=['k', ehc.SCOLORS[1]],
+                                         axis=ax, legend=False, clist=['k', const_def.SCOLORS[1]],
                                          ttype='nfft', show=False, ebar=ebar)
                 i += 1
                 ax.set_xlabel('')
@@ -1505,7 +1498,7 @@ def _display_img(im, beamparams=None, scale='linear', gamma=0.5, cbar_lims=False
     imvec = np.array(im.imvec).reshape(-1)
     # flux unit is mJy/uas^2
     imvec = imvec * 1.e3
-    fovfactor = im.xdim*im.psize*(1/ehc.RADPERUAS)
+    fovfactor = im.xdim*im.psize*(1/const_def.RADPERUAS)
     factor = (1./fovfactor)**2 / (1./im.xdim)**2
     imvec = imvec * factor
 
@@ -1555,7 +1548,7 @@ def _display_img(im, beamparams=None, scale='linear', gamma=0.5, cbar_lims=False
         ax = plt.gca()
 
     plt.axis('off')
-    fov_uas = im.xdim * im.psize / ehc.RADPERUAS  # get the fov in uas
+    fov_uas = im.xdim * im.psize / const_def.RADPERUAS  # get the fov in uas
     roughfactor = 1./3.  # make the bar about 1/3 the fov
     fov_scale = 40
     start = im.xdim * roughfactor / 3.0  # select the start location
@@ -1596,7 +1589,7 @@ def _display_img_pol(im, beamparams=None, scale='linear', gamma=0.5, cbar_lims=F
         factor = 1
         cbar_lims = [0, 1]
     elif pol == 'chi':
-        imvec = im.chivec / ehc.DEGREE
+        imvec = im.chivec / const_def.DEGREE
         unit = r'$\chi (^\circ)$'
         factor = 1
         cbar_lims = [0, 180]
@@ -1710,7 +1703,7 @@ def _display_img_pol(im, beamparams=None, scale='linear', gamma=0.5, cbar_lims=F
 
     plt.axis('off')
     if has_cbar:
-        fov_uas = im.xdim * im.psize / ehc.RADPERUAS  # get the fov in uas
+        fov_uas = im.xdim * im.psize / const_def.RADPERUAS  # get the fov in uas
         roughfactor = 1./3.  # make the bar about 1/3 the fov
         fov_scale = 40
         # round around 1/3 the fov to nearest 10
