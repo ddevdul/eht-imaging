@@ -1,28 +1,19 @@
-# model.py
-# an interferometric model class
+"""
+An interferometric model class
+"""
 
-from __future__ import division
-from __future__ import print_function
-from builtins import str
-from builtins import range
-from builtins import object
-
-import numpy as np
-import scipy.special as sps
-import scipy.integrate as integrate
-import scipy.interpolate as interpolate
+import sys
 import copy
-
-import ehtim.observing.obs_simulate as simobs
+import numpy as np
+import scipy.special
+from scipy import integrate, interpolate
+sys.path.extend(["ehtim"])
+from ehtim.observing import obs_simulate
 import ehtim.observing.pulses
-
-from ehtim.const_def import *
-from ehtim.observing.obs_helpers import *
-#from ehtim.modeling.modeling_utils import *
-
-import ehtim.image as image
-
-from ehtim.const_def import *
+from ehtim.const_def
+from ehtim.observing import obs_helpers
+import image
+from ehtim.const_def
 
 LINE_THICKNESS = 2 # Thickness of 1D models on the image, in pixels
 FOV_DEFAULT = 100.*RADPERUAS
@@ -347,7 +338,7 @@ def sample_1model_xy(x, y, model_type, params, psize=1.*RADPERUAS, pol='I'):
         def f(r):
             return integrate.quad(lambda rp: 
                 prefac * rp * np.exp( -4.0 * np.log(2.0)/params['alpha']**2 * (r**2 + rp**2 - 2.0*r * rp) ) 
-                * sps.ive(0, 8.0*np.log(2.0) * r * rp/params['alpha']**2), 
+                * scipy.special.ive(0, 8.0*np.log(2.0) * r * rp/params['alpha']**2), 
                 0, params['d']/2.0, limit=1000, epsabs=I_peak/1e9, epsrel=1.0e-6)[0]
         f=np.vectorize(f)
         r = np.sqrt((x - params['x0'])**2 + (y - params['y0'])**2)
@@ -369,7 +360,7 @@ def sample_1model_xy(x, y, model_type, params, psize=1.*RADPERUAS, pol='I'):
         z = 4.*np.log(2.) * r * params['d']/params['alpha']**2
         val = (params['F0']*psize**2 * 4.0 * np.log(2.)/(np.pi * params['alpha']**2)
                 * np.exp(-4.*np.log(2.)/params['alpha']**2*(r**2 + params['d']**2/4.) + z)
-                * sps.ive(0, z)) 
+                * scipy.special.ive(0, z)) 
     elif model_type == 'mring':
         phi = np.angle((y - params['y0']) + 1j*(x - params['x0']))
         if pol == 'I':
@@ -391,12 +382,12 @@ def sample_1model_xy(x, y, model_type, params, psize=1.*RADPERUAS, pol='I'):
         r = np.sqrt((x - params['x0'])**2 + (y - params['y0'])**2)
         z = 4.*np.log(2.) * r * params['d']/params['alpha']**2
         if pol == 'I':
-            beta_factor = (sps.ive(0, z) + np.sum([2.*np.real(sps.ive(m, z) * params['beta_list'][m-1] * np.exp(1j * m * phi)) for m in range(1,len(params['beta_list'])+1)],axis=0))
+            beta_factor = (scipy.special.ive(0, z) + np.sum([2.*np.real(scipy.special.ive(m, z) * params['beta_list'][m-1] * np.exp(1j * m * phi)) for m in range(1,len(params['beta_list'])+1)],axis=0))
         elif pol == 'V' and len(params['beta_list_cpol']) > 0:
-            beta_factor = (sps.ive(0, z) * params['beta_list_cpol'][0] + np.sum([2.*np.real(sps.ive(m, z) * params['beta_list_cpol'][m] * np.exp(1j * m * phi)) for m in range(1,len(params['beta_list_cpol']))],axis=0))
+            beta_factor = (scipy.special.ive(0, z) * params['beta_list_cpol'][0] + np.sum([2.*np.real(scipy.special.ive(m, z) * params['beta_list_cpol'][m] * np.exp(1j * m * phi)) for m in range(1,len(params['beta_list_cpol']))],axis=0))
         elif pol == 'P' and len(params['beta_list_pol']) > 0:
             num_coeff = len(params['beta_list_pol'])
-            beta_factor = np.sum([params['beta_list_pol'][m + (num_coeff-1)//2] * sps.ive(m, z) * np.exp(1j * m * phi) for m in range(-(num_coeff-1)//2,(num_coeff+1)//2)],axis=0)
+            beta_factor = np.sum([params['beta_list_pol'][m + (num_coeff-1)//2] * scipy.special.ive(m, z) * np.exp(1j * m * phi) for m in range(-(num_coeff-1)//2,(num_coeff+1)//2)],axis=0)
         else:
             # Note: not all polarizations accounted for yet (need RR, RL, LR, LL; do these by calling for linear combinations of I, Q, U, V)!
             beta_factor = 0.0
@@ -484,22 +475,22 @@ def sample_1model_uv(u, v, model_type, params, pol='I', jonesdict=None):
         z = np.pi * params['d'] * (u**2 + v**2)**0.5
         #Add a small offset to avoid issues with division by zero
         z += (z == 0.0) * 1e-10
-        val = (params['F0'] * 2.0/z * sps.jv(1, z) 
+        val = (params['F0'] * 2.0/z * scipy.special.jv(1, z) 
                * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0']))) 
     elif model_type == 'blurred_disk':
         z = np.pi * params['d'] * (u**2 + v**2)**0.5
         #Add a small offset to avoid issues with division by zero
         z += (z == 0.0) * 1e-10
-        val = (params['F0'] * 2.0/z * sps.jv(1, z) 
+        val = (params['F0'] * 2.0/z * scipy.special.jv(1, z) 
                * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0']))
                * np.exp(-(np.pi * params['alpha'] * (u**2 + v**2)**0.5)**2/(4. * np.log(2.)))) 
     elif model_type == 'ring':
         z = np.pi * params['d'] * (u**2 + v**2)**0.5
-        val = (params['F0'] * sps.jv(0, z) 
+        val = (params['F0'] * scipy.special.jv(0, z) 
                * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0']))) 
     elif model_type == 'thick_ring':
         z = np.pi * params['d'] * (u**2 + v**2)**0.5
-        val = (params['F0'] * sps.jv(0, z) 
+        val = (params['F0'] * scipy.special.jv(0, z) 
                * np.exp(-(np.pi * params['alpha'] * (u**2 + v**2)**0.5)**2/(4. * np.log(2.)))
                * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0']))) 
     elif model_type == 'mring':
@@ -509,16 +500,16 @@ def sample_1model_uv(u, v, model_type, params, pol='I', jonesdict=None):
         z = np.pi * params['d'] * (u**2 + v**2)**0.5
 
         if pol == 'I':
-            beta_factor = (sps.jv(0, z) 
-               + np.sum([params['beta_list'][m-1]          * sps.jv( m, z) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0)
-               + np.sum([np.conj(params['beta_list'][m-1]) * sps.jv(-m, z) * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0))
+            beta_factor = (scipy.special.jv(0, z) 
+               + np.sum([params['beta_list'][m-1]          * scipy.special.jv( m, z) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0)
+               + np.sum([np.conj(params['beta_list'][m-1]) * scipy.special.jv(-m, z) * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0))
         elif pol == 'V' and len(params['beta_list_cpol']) > 0:
-            beta_factor = (params['beta_list_cpol'][0] * sps.jv(0, z) 
-               + np.sum([params['beta_list_cpol'][m]          * sps.jv( m, z) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0)
-               + np.sum([np.conj(params['beta_list_cpol'][m]) * sps.jv(-m, z) * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0))
+            beta_factor = (params['beta_list_cpol'][0] * scipy.special.jv(0, z) 
+               + np.sum([params['beta_list_cpol'][m]          * scipy.special.jv( m, z) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0)
+               + np.sum([np.conj(params['beta_list_cpol'][m]) * scipy.special.jv(-m, z) * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0))
         elif pol == 'P' and len(params['beta_list_pol']) > 0:
             num_coeff = len(params['beta_list_pol'])
-            beta_factor = np.sum([params['beta_list_pol'][m + (num_coeff-1)//2] * sps.jv( m, z) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(-(num_coeff-1)//2,(num_coeff+1)//2)],axis=0)
+            beta_factor = np.sum([params['beta_list_pol'][m + (num_coeff-1)//2] * scipy.special.jv( m, z) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(-(num_coeff-1)//2,(num_coeff+1)//2)],axis=0)
         else:
             beta_factor = 0.0
 
@@ -530,16 +521,16 @@ def sample_1model_uv(u, v, model_type, params, pol='I', jonesdict=None):
         z = np.pi * params['d'] * (u**2 + v**2)**0.5
 
         if pol == 'I':
-            beta_factor = (sps.jv(0, z) 
-               + np.sum([params['beta_list'][m-1]          * sps.jv( m, z) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0)
-               + np.sum([np.conj(params['beta_list'][m-1]) * sps.jv(-m, z) * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0))
+            beta_factor = (scipy.special.jv(0, z) 
+               + np.sum([params['beta_list'][m-1]          * scipy.special.jv( m, z) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0)
+               + np.sum([np.conj(params['beta_list'][m-1]) * scipy.special.jv(-m, z) * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0))
         elif pol == 'V' and len(params['beta_list_cpol']) > 0:
-            beta_factor = (params['beta_list_cpol'][0] * sps.jv(0, z) 
-               + np.sum([params['beta_list_cpol'][m]          * sps.jv( m, z) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0)
-               + np.sum([np.conj(params['beta_list_cpol'][m]) * sps.jv(-m, z) * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0))
+            beta_factor = (params['beta_list_cpol'][0] * scipy.special.jv(0, z) 
+               + np.sum([params['beta_list_cpol'][m]          * scipy.special.jv( m, z) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0)
+               + np.sum([np.conj(params['beta_list_cpol'][m]) * scipy.special.jv(-m, z) * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0))
         elif pol == 'P' and len(params['beta_list_pol']) > 0:
             num_coeff = len(params['beta_list_pol'])
-            beta_factor = np.sum([params['beta_list_pol'][m + (num_coeff-1)//2] * sps.jv( m, z) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(-(num_coeff-1)//2,(num_coeff+1)//2)],axis=0)
+            beta_factor = np.sum([params['beta_list_pol'][m + (num_coeff-1)//2] * scipy.special.jv( m, z) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(-(num_coeff-1)//2,(num_coeff+1)//2)],axis=0)
         else:
             beta_factor = 0.0
 
@@ -631,7 +622,7 @@ def sample_1model_graduv_uv(u, v, model_type, params, pol='I', jonesdict=None):
         #v += (u==0.)*(v==0.)*1e-10
         uvdist = (u**2 + v**2 + (u==0.)*(v==0.)*1e-10)**0.5
         z = np.pi * params['d'] * uvdist
-        bessel_deriv = 0.5 * (sps.jv( 0, z) - sps.jv( 2, z))
+        bessel_deriv = 0.5 * (scipy.special.jv( 0, z) - scipy.special.jv( 2, z))
         val = np.array([  (1j * 2.0 * np.pi * params['x0'] - u/uvdist**2) * vis 
                             + params['F0'] * 2./z * np.pi * params['d'] * u/uvdist * bessel_deriv * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0'])),
                           (1j * 2.0 * np.pi * params['y0'] - v/uvdist**2) * vis 
@@ -642,7 +633,7 @@ def sample_1model_graduv_uv(u, v, model_type, params, pol='I', jonesdict=None):
         uvdist = (u**2 + v**2 + (u==0.)*(v==0.)*1e-10)**0.5
         z = np.pi * params['d'] * uvdist
         blur = np.exp(-(np.pi * params['alpha'] * (u**2 + v**2)**0.5)**2/(4. * np.log(2.)))
-        bessel_deriv = 0.5 * (sps.jv( 0, z) - sps.jv( 2, z))
+        bessel_deriv = 0.5 * (scipy.special.jv( 0, z) - scipy.special.jv( 2, z))
         val = np.array([ (1j * 2.0 * np.pi * params['x0'] - u/uvdist**2 - params['alpha']**2 * np.pi**2 * u/(2. * np.log(2.))) * vis 
                             + params['F0'] * 2./z * np.pi * params['d'] * u/uvdist * bessel_deriv * blur * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0'])),
                          (1j * 2.0 * np.pi * params['y0'] - v/uvdist**2 - params['alpha']**2 * np.pi**2 * v/(2. * np.log(2.))) * vis 
@@ -653,19 +644,19 @@ def sample_1model_graduv_uv(u, v, model_type, params, pol='I', jonesdict=None):
         uvdist = (u**2 + v**2 + (u==0.)*(v==0.)*1e-10)**0.5
         z = np.pi * params['d'] * uvdist
         val = np.array([ 1j * 2.0 * np.pi * params['x0'] * vis 
-                            - params['F0'] * np.pi*params['d']*u/uvdist * sps.jv(1, z) * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0'])),
+                            - params['F0'] * np.pi*params['d']*u/uvdist * scipy.special.jv(1, z) * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0'])),
                           1j * 2.0 * np.pi * params['y0'] * vis 
-                            - params['F0'] * np.pi*params['d']*v/uvdist * sps.jv(1, z) * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0'])) ])
+                            - params['F0'] * np.pi*params['d']*v/uvdist * scipy.special.jv(1, z) * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0'])) ])
     elif model_type == 'thick_ring':
         uvdist = (u**2 + v**2)**0.5
         #Add a small offset to avoid issues with division by zero
         uvdist += (uvdist == 0.0) * 1e-10
         z = np.pi * params['d'] * uvdist
         val = np.array([ (1j * 2.0 * np.pi * params['x0'] - params['alpha']**2 * np.pi**2 * u/(2. * np.log(2.))) * vis 
-                        - params['F0'] * np.pi*params['d']*u/uvdist * sps.jv(1, z) 
+                        - params['F0'] * np.pi*params['d']*u/uvdist * scipy.special.jv(1, z) 
                                 * np.exp(-(np.pi * params['alpha'] * (u**2 + v**2)**0.5)**2/(4. * np.log(2.))) * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0'])),
                           (1j * 2.0 * np.pi * params['y0'] - params['alpha']**2 * np.pi**2 * v/(2. * np.log(2.))) * vis 
-                        - params['F0'] * np.pi*params['d']*v/uvdist * sps.jv(1, z) * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0']))
+                        - params['F0'] * np.pi*params['d']*v/uvdist * scipy.special.jv(1, z) * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0']))
                                 * np.exp(-(np.pi * params['alpha'] * (u**2 + v**2)**0.5)**2/(4. * np.log(2.))) * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0'])) ])
     elif model_type == 'mring': 
         # Take care of the degenerate origin point by a small offset
@@ -679,36 +670,36 @@ def sample_1model_graduv_uv(u, v, model_type, params, pol='I', jonesdict=None):
         z = np.pi * params['d'] * uvdist
 
         if pol == 'I':
-            beta_factor_u = (-np.pi * params['d'] * u/uvdist * sps.jv(1, z)
-                    + np.sum([params['beta_list'][m-1]          * sps.jv( m, z) * ( 1j * m * dphidu) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0)
-                    + np.sum([np.conj(params['beta_list'][m-1]) * sps.jv(-m, z) * (-1j * m * dphidu) * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0)
-                    + np.sum([params['beta_list'][m-1]          * 0.5 * (sps.jv( m-1, z) - sps.jv( m+1, z)) * np.pi * params['d'] * u/uvdist * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0)
-                    + np.sum([np.conj(params['beta_list'][m-1]) * 0.5 * (sps.jv(-m-1, z) - sps.jv(-m+1, z)) * np.pi * params['d'] * u/uvdist * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0))
-            beta_factor_v = (-np.pi * params['d'] * v/uvdist * sps.jv(1, z)
-                    + np.sum([params['beta_list'][m-1]          * sps.jv( m, z) * ( 1j * m * dphidv) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0)
-                    + np.sum([np.conj(params['beta_list'][m-1]) * sps.jv(-m, z) * (-1j * m * dphidv) * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0)
-                    + np.sum([params['beta_list'][m-1]          * 0.5 * (sps.jv( m-1, z) - sps.jv( m+1, z)) * np.pi * params['d'] * v/uvdist * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0)
-                    + np.sum([np.conj(params['beta_list'][m-1]) * 0.5 * (sps.jv(-m-1, z) - sps.jv(-m+1, z)) * np.pi * params['d'] * v/uvdist * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0))
+            beta_factor_u = (-np.pi * params['d'] * u/uvdist * scipy.special.jv(1, z)
+                    + np.sum([params['beta_list'][m-1]          * scipy.special.jv( m, z) * ( 1j * m * dphidu) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0)
+                    + np.sum([np.conj(params['beta_list'][m-1]) * scipy.special.jv(-m, z) * (-1j * m * dphidu) * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0)
+                    + np.sum([params['beta_list'][m-1]          * 0.5 * (scipy.special.jv( m-1, z) - scipy.special.jv( m+1, z)) * np.pi * params['d'] * u/uvdist * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0)
+                    + np.sum([np.conj(params['beta_list'][m-1]) * 0.5 * (scipy.special.jv(-m-1, z) - scipy.special.jv(-m+1, z)) * np.pi * params['d'] * u/uvdist * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0))
+            beta_factor_v = (-np.pi * params['d'] * v/uvdist * scipy.special.jv(1, z)
+                    + np.sum([params['beta_list'][m-1]          * scipy.special.jv( m, z) * ( 1j * m * dphidv) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0)
+                    + np.sum([np.conj(params['beta_list'][m-1]) * scipy.special.jv(-m, z) * (-1j * m * dphidv) * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0)
+                    + np.sum([params['beta_list'][m-1]          * 0.5 * (scipy.special.jv( m-1, z) - scipy.special.jv( m+1, z)) * np.pi * params['d'] * v/uvdist * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0)
+                    + np.sum([np.conj(params['beta_list'][m-1]) * 0.5 * (scipy.special.jv(-m-1, z) - scipy.special.jv(-m+1, z)) * np.pi * params['d'] * v/uvdist * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0))
 
         elif pol == 'V' and len(params['beta_list_cpol']) > 0:
-            beta_factor_u = (-np.pi * params['d'] * u/uvdist * sps.jv(1, z) * params['beta_list_cpol'][0]
-                    + np.sum([params['beta_list_cpol'][m]          * sps.jv( m, z) * ( 1j * m * dphidu) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0)
-                    + np.sum([np.conj(params['beta_list_cpol'][m]) * sps.jv(-m, z) * (-1j * m * dphidu) * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0)
-                    + np.sum([params['beta_list_cpol'][m]          * 0.5 * (sps.jv( m-1, z) - sps.jv( m+1, z)) * np.pi * params['d'] * u/uvdist * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0)
-                    + np.sum([np.conj(params['beta_list_cpol'][m]) * 0.5 * (sps.jv(-m-1, z) - sps.jv(-m+1, z)) * np.pi * params['d'] * u/uvdist * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0))
-            beta_factor_v = (-np.pi * params['d'] * v/uvdist * sps.jv(1, z)
-                    + np.sum([params['beta_list_cpol'][m]          * sps.jv( m, z) * ( 1j * m * dphidv) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0)
-                    + np.sum([np.conj(params['beta_list_cpol'][m]) * sps.jv(-m, z) * (-1j * m * dphidv) * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0)
-                    + np.sum([params['beta_list_cpol'][m]          * 0.5 * (sps.jv( m-1, z) - sps.jv( m+1, z)) * np.pi * params['d'] * v/uvdist * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0)
-                    + np.sum([np.conj(params['beta_list_cpol'][m]) * 0.5 * (sps.jv(-m-1, z) - sps.jv(-m+1, z)) * np.pi * params['d'] * v/uvdist * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0))
+            beta_factor_u = (-np.pi * params['d'] * u/uvdist * scipy.special.jv(1, z) * params['beta_list_cpol'][0]
+                    + np.sum([params['beta_list_cpol'][m]          * scipy.special.jv( m, z) * ( 1j * m * dphidu) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0)
+                    + np.sum([np.conj(params['beta_list_cpol'][m]) * scipy.special.jv(-m, z) * (-1j * m * dphidu) * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0)
+                    + np.sum([params['beta_list_cpol'][m]          * 0.5 * (scipy.special.jv( m-1, z) - scipy.special.jv( m+1, z)) * np.pi * params['d'] * u/uvdist * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0)
+                    + np.sum([np.conj(params['beta_list_cpol'][m]) * 0.5 * (scipy.special.jv(-m-1, z) - scipy.special.jv(-m+1, z)) * np.pi * params['d'] * u/uvdist * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0))
+            beta_factor_v = (-np.pi * params['d'] * v/uvdist * scipy.special.jv(1, z)
+                    + np.sum([params['beta_list_cpol'][m]          * scipy.special.jv( m, z) * ( 1j * m * dphidv) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0)
+                    + np.sum([np.conj(params['beta_list_cpol'][m]) * scipy.special.jv(-m, z) * (-1j * m * dphidv) * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0)
+                    + np.sum([params['beta_list_cpol'][m]          * 0.5 * (scipy.special.jv( m-1, z) - scipy.special.jv( m+1, z)) * np.pi * params['d'] * v/uvdist * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0)
+                    + np.sum([np.conj(params['beta_list_cpol'][m]) * 0.5 * (scipy.special.jv(-m-1, z) - scipy.special.jv(-m+1, z)) * np.pi * params['d'] * v/uvdist * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0))
         elif pol == 'P' and len(params['beta_list_pol']) > 0:
             num_coeff = len(params['beta_list_pol'])
             beta_factor_u = (
-                      np.sum([params['beta_list_pol'][m + (num_coeff-1)//2] * sps.jv( m, z) * ( 1j * m * dphidu) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(-(num_coeff-1)//2,(num_coeff+1)//2)],axis=0)
-                    + np.sum([params['beta_list_pol'][m + (num_coeff-1)//2] * 0.5 * (sps.jv( m-1, z) - sps.jv( m+1, z)) * np.pi * params['d'] * u/uvdist * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(-(num_coeff-1)//2,(num_coeff+1)//2)],axis=0))
+                      np.sum([params['beta_list_pol'][m + (num_coeff-1)//2] * scipy.special.jv( m, z) * ( 1j * m * dphidu) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(-(num_coeff-1)//2,(num_coeff+1)//2)],axis=0)
+                    + np.sum([params['beta_list_pol'][m + (num_coeff-1)//2] * 0.5 * (scipy.special.jv( m-1, z) - scipy.special.jv( m+1, z)) * np.pi * params['d'] * u/uvdist * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(-(num_coeff-1)//2,(num_coeff+1)//2)],axis=0))
             beta_factor_v = (
-                      np.sum([params['beta_list_pol'][m + (num_coeff-1)//2] * sps.jv( m, z) * ( 1j * m * dphidv) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(-(num_coeff-1)//2,(num_coeff+1)//2)],axis=0)
-                    + np.sum([params['beta_list_pol'][m + (num_coeff-1)//2] * 0.5 * (sps.jv( m-1, z) - sps.jv( m+1, z)) * np.pi * params['d'] * v/uvdist * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(-(num_coeff-1)//2,(num_coeff+1)//2)],axis=0))
+                      np.sum([params['beta_list_pol'][m + (num_coeff-1)//2] * scipy.special.jv( m, z) * ( 1j * m * dphidv) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(-(num_coeff-1)//2,(num_coeff+1)//2)],axis=0)
+                    + np.sum([params['beta_list_pol'][m + (num_coeff-1)//2] * 0.5 * (scipy.special.jv( m-1, z) - scipy.special.jv( m+1, z)) * np.pi * params['d'] * v/uvdist * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(-(num_coeff-1)//2,(num_coeff+1)//2)],axis=0))
         else:
             beta_factor_u = beta_factor_v = 0.0
 
@@ -731,36 +722,36 @@ def sample_1model_graduv_uv(u, v, model_type, params, pol='I', jonesdict=None):
         z = np.pi * params['d'] * uvdist
 
         if pol == 'I':
-            beta_factor_u = (-np.pi * params['d'] * u/uvdist * sps.jv(1, z)
-                    + np.sum([params['beta_list'][m-1]          * sps.jv( m, z) * ( 1j * m * dphidu) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0)
-                    + np.sum([np.conj(params['beta_list'][m-1]) * sps.jv(-m, z) * (-1j * m * dphidu) * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0)
-                    + np.sum([params['beta_list'][m-1]          * 0.5 * (sps.jv( m-1, z) - sps.jv( m+1, z)) * np.pi * params['d'] * u/uvdist * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0)
-                    + np.sum([np.conj(params['beta_list'][m-1]) * 0.5 * (sps.jv(-m-1, z) - sps.jv(-m+1, z)) * np.pi * params['d'] * u/uvdist * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0))
-            beta_factor_v = (-np.pi * params['d'] * v/uvdist * sps.jv(1, z)
-                    + np.sum([params['beta_list'][m-1]          * sps.jv( m, z) * ( 1j * m * dphidv) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0)
-                    + np.sum([np.conj(params['beta_list'][m-1]) * sps.jv(-m, z) * (-1j * m * dphidv) * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0)
-                    + np.sum([params['beta_list'][m-1]          * 0.5 * (sps.jv( m-1, z) - sps.jv( m+1, z)) * np.pi * params['d'] * v/uvdist * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0)
-                    + np.sum([np.conj(params['beta_list'][m-1]) * 0.5 * (sps.jv(-m-1, z) - sps.jv(-m+1, z)) * np.pi * params['d'] * v/uvdist * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0))
+            beta_factor_u = (-np.pi * params['d'] * u/uvdist * scipy.special.jv(1, z)
+                    + np.sum([params['beta_list'][m-1]          * scipy.special.jv( m, z) * ( 1j * m * dphidu) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0)
+                    + np.sum([np.conj(params['beta_list'][m-1]) * scipy.special.jv(-m, z) * (-1j * m * dphidu) * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0)
+                    + np.sum([params['beta_list'][m-1]          * 0.5 * (scipy.special.jv( m-1, z) - scipy.special.jv( m+1, z)) * np.pi * params['d'] * u/uvdist * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0)
+                    + np.sum([np.conj(params['beta_list'][m-1]) * 0.5 * (scipy.special.jv(-m-1, z) - scipy.special.jv(-m+1, z)) * np.pi * params['d'] * u/uvdist * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0))
+            beta_factor_v = (-np.pi * params['d'] * v/uvdist * scipy.special.jv(1, z)
+                    + np.sum([params['beta_list'][m-1]          * scipy.special.jv( m, z) * ( 1j * m * dphidv) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0)
+                    + np.sum([np.conj(params['beta_list'][m-1]) * scipy.special.jv(-m, z) * (-1j * m * dphidv) * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0)
+                    + np.sum([params['beta_list'][m-1]          * 0.5 * (scipy.special.jv( m-1, z) - scipy.special.jv( m+1, z)) * np.pi * params['d'] * v/uvdist * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0)
+                    + np.sum([np.conj(params['beta_list'][m-1]) * 0.5 * (scipy.special.jv(-m-1, z) - scipy.special.jv(-m+1, z)) * np.pi * params['d'] * v/uvdist * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0))
 
         elif pol == 'V' and len(params['beta_list_cpol']) > 0:
-            beta_factor_u = (-np.pi * params['d'] * u/uvdist * sps.jv(1, z) * params['beta_list_cpol'][0]
-                    + np.sum([params['beta_list_cpol'][m]          * sps.jv( m, z) * ( 1j * m * dphidu) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0)
-                    + np.sum([np.conj(params['beta_list_cpol'][m]) * sps.jv(-m, z) * (-1j * m * dphidu) * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0)
-                    + np.sum([params['beta_list_cpol'][m]          * 0.5 * (sps.jv( m-1, z) - sps.jv( m+1, z)) * np.pi * params['d'] * u/uvdist * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0)
-                    + np.sum([np.conj(params['beta_list_cpol'][m]) * 0.5 * (sps.jv(-m-1, z) - sps.jv(-m+1, z)) * np.pi * params['d'] * u/uvdist * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0))
-            beta_factor_v = (-np.pi * params['d'] * v/uvdist * sps.jv(1, z)
-                    + np.sum([params['beta_list_cpol'][m]          * sps.jv( m, z) * ( 1j * m * dphidv) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0)
-                    + np.sum([np.conj(params['beta_list_cpol'][m]) * sps.jv(-m, z) * (-1j * m * dphidv) * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0)
-                    + np.sum([params['beta_list_cpol'][m]          * 0.5 * (sps.jv( m-1, z) - sps.jv( m+1, z)) * np.pi * params['d'] * v/uvdist * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0)
-                    + np.sum([np.conj(params['beta_list_cpol'][m]) * 0.5 * (sps.jv(-m-1, z) - sps.jv(-m+1, z)) * np.pi * params['d'] * v/uvdist * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0))
+            beta_factor_u = (-np.pi * params['d'] * u/uvdist * scipy.special.jv(1, z) * params['beta_list_cpol'][0]
+                    + np.sum([params['beta_list_cpol'][m]          * scipy.special.jv( m, z) * ( 1j * m * dphidu) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0)
+                    + np.sum([np.conj(params['beta_list_cpol'][m]) * scipy.special.jv(-m, z) * (-1j * m * dphidu) * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0)
+                    + np.sum([params['beta_list_cpol'][m]          * 0.5 * (scipy.special.jv( m-1, z) - scipy.special.jv( m+1, z)) * np.pi * params['d'] * u/uvdist * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0)
+                    + np.sum([np.conj(params['beta_list_cpol'][m]) * 0.5 * (scipy.special.jv(-m-1, z) - scipy.special.jv(-m+1, z)) * np.pi * params['d'] * u/uvdist * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0))
+            beta_factor_v = (-np.pi * params['d'] * v/uvdist * scipy.special.jv(1, z)
+                    + np.sum([params['beta_list_cpol'][m]          * scipy.special.jv( m, z) * ( 1j * m * dphidv) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0)
+                    + np.sum([np.conj(params['beta_list_cpol'][m]) * scipy.special.jv(-m, z) * (-1j * m * dphidv) * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0)
+                    + np.sum([params['beta_list_cpol'][m]          * 0.5 * (scipy.special.jv( m-1, z) - scipy.special.jv( m+1, z)) * np.pi * params['d'] * v/uvdist * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0)
+                    + np.sum([np.conj(params['beta_list_cpol'][m]) * 0.5 * (scipy.special.jv(-m-1, z) - scipy.special.jv(-m+1, z)) * np.pi * params['d'] * v/uvdist * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0))
         elif pol == 'P' and len(params['beta_list_pol']) > 0:
             num_coeff = len(params['beta_list_pol'])
             beta_factor_u = (0.0
-                    + np.sum([params['beta_list_pol'][m + (num_coeff-1)//2] * sps.jv( m, z) * ( 1j * m * dphidu) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(-(num_coeff-1)//2,(num_coeff+1)//2)],axis=0)
-                    + np.sum([params['beta_list_pol'][m + (num_coeff-1)//2] * 0.5 * (sps.jv( m-1, z) - sps.jv( m+1, z)) * np.pi * params['d'] * u/uvdist * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(-(num_coeff-1)//2,(num_coeff+1)//2)],axis=0))
+                    + np.sum([params['beta_list_pol'][m + (num_coeff-1)//2] * scipy.special.jv( m, z) * ( 1j * m * dphidu) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(-(num_coeff-1)//2,(num_coeff+1)//2)],axis=0)
+                    + np.sum([params['beta_list_pol'][m + (num_coeff-1)//2] * 0.5 * (scipy.special.jv( m-1, z) - scipy.special.jv( m+1, z)) * np.pi * params['d'] * u/uvdist * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(-(num_coeff-1)//2,(num_coeff+1)//2)],axis=0))
             beta_factor_v = (0.0
-                    + np.sum([params['beta_list_pol'][m + (num_coeff-1)//2] * sps.jv( m, z) * ( 1j * m * dphidv) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(-(num_coeff-1)//2,(num_coeff+1)//2)],axis=0)
-                    + np.sum([params['beta_list_pol'][m + (num_coeff-1)//2] * 0.5 * (sps.jv( m-1, z) - sps.jv( m+1, z)) * np.pi * params['d'] * v/uvdist * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(-(num_coeff-1)//2,(num_coeff+1)//2)],axis=0))
+                    + np.sum([params['beta_list_pol'][m + (num_coeff-1)//2] * scipy.special.jv( m, z) * ( 1j * m * dphidv) * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(-(num_coeff-1)//2,(num_coeff+1)//2)],axis=0)
+                    + np.sum([params['beta_list_pol'][m + (num_coeff-1)//2] * 0.5 * (scipy.special.jv( m-1, z) - scipy.special.jv( m+1, z)) * np.pi * params['d'] * v/uvdist * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(-(num_coeff-1)//2,(num_coeff+1)//2)],axis=0))
         else:
             beta_factor_u = beta_factor_v = 0.0
 
@@ -975,10 +966,10 @@ def sample_1model_grad_uv(u, v, model_type, params, pol='I', fit_pol=False, fit_
         z = np.pi * params['d'] * (u**2 + v**2)**0.5
         #Add a small offset to avoid issues with division by zero
         z += (z == 0.0) * 1e-10
-        vis = (params['F0'] * 2.0/z * sps.jv(1, z) 
+        vis = (params['F0'] * 2.0/z * scipy.special.jv(1, z) 
                * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0']))) 
         val = np.array([ 1.0/params['F0'] * vis,
-                         -(params['F0'] * 2.0/z * sps.jv(2, z) * np.pi * (u**2 + v**2)**0.5 * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0']))) ,
+                         -(params['F0'] * 2.0/z * scipy.special.jv(2, z) * np.pi * (u**2 + v**2)**0.5 * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0']))) ,
                           1j * 2.0 * np.pi * u * vis,
                           1j * 2.0 * np.pi * v * vis]) 
     elif model_type == 'blurred_disk': # F0, d, alpha, x0, y0
@@ -986,27 +977,27 @@ def sample_1model_grad_uv(u, v, model_type, params, pol='I', fit_pol=False, fit_
         #Add a small offset to avoid issues with division by zero
         z += (z == 0.0) * 1e-10
         blur = np.exp(-(np.pi * params['alpha'] * (u**2 + v**2)**0.5)**2/(4. * np.log(2.)))
-        vis = (params['F0'] * 2.0/z * sps.jv(1, z) 
+        vis = (params['F0'] * 2.0/z * scipy.special.jv(1, z) 
                * blur
                * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0']))) 
         val = np.array([ 1.0/params['F0'] * vis,
-                         -params['F0'] * 2.0/z * sps.jv(2, z) * np.pi * (u**2 + v**2)**0.5 * blur * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0'])),
+                         -params['F0'] * 2.0/z * scipy.special.jv(2, z) * np.pi * (u**2 + v**2)**0.5 * blur * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0'])),
                          -np.pi**2 * (u**2 + v**2) * params['alpha']/(2.*np.log(2.)) * vis,
                           1j * 2.0 * np.pi * u * vis,
                           1j * 2.0 * np.pi * v * vis])    
     elif model_type == 'ring': # F0, d, x0, y0
         z = np.pi * params['d'] * (u**2 + v**2)**0.5
-        val = np.array([ sps.jv(0, z) * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0'])), 
-                -np.pi * (u**2 + v**2)**0.5 * params['F0'] * sps.jv(1, z) * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0'])), 
-                 2.0 * np.pi * 1j * u * params['F0'] * sps.jv(0, z) * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0'])), 
-                 2.0 * np.pi * 1j * v * params['F0'] * sps.jv(0, z) * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0']))])
+        val = np.array([ scipy.special.jv(0, z) * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0'])), 
+                -np.pi * (u**2 + v**2)**0.5 * params['F0'] * scipy.special.jv(1, z) * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0'])), 
+                 2.0 * np.pi * 1j * u * params['F0'] * scipy.special.jv(0, z) * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0'])), 
+                 2.0 * np.pi * 1j * v * params['F0'] * scipy.special.jv(0, z) * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0']))])
     elif model_type == 'thick_ring': # F0, d, alpha, x0, y0
         z = np.pi * params['d'] * (u**2 + v**2)**0.5
-        vis = (params['F0'] * sps.jv(0, z) 
+        vis = (params['F0'] * scipy.special.jv(0, z) 
                * np.exp(-(np.pi * params['alpha'] * (u**2 + v**2)**0.5)**2/(4. * np.log(2.)))
                * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0']))) 
         val = np.array([ 1.0/params['F0'] * vis,
-                         -(params['F0'] * np.pi * (u**2 + v**2)**0.5 * sps.jv(1, z) 
+                         -(params['F0'] * np.pi * (u**2 + v**2)**0.5 * scipy.special.jv(1, z) 
                             * np.exp(-(np.pi * params['alpha'] * (u**2 + v**2)**0.5)**2/(4. * np.log(2.)))
                             * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0']))),
                          -np.pi**2 * (u**2 + v**2) * params['alpha']/(2.*np.log(2.)) * vis,
@@ -1026,16 +1017,16 @@ def sample_1model_grad_uv(u, v, model_type, params, pol='I', fit_pol=False, fit_
         # Only one of the beta_lists will affect the measurement and have non-zero gradients. Figure out which:
         # These are for the derivatives wrt diameter
         if pol == 'I':
-            beta_factor = (-np.pi * uvdist * sps.jv(1, z) 
-               + np.sum([params['beta_list'][m-1]          * 0.5 * (sps.jv( m-1, z)  - sps.jv(  m+1, z)) * np.pi * uvdist * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0)
-               + np.sum([np.conj(params['beta_list'][m-1]) * 0.5 * (sps.jv( -m-1, z) - sps.jv( -m+1, z)) * np.pi * uvdist * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0))
+            beta_factor = (-np.pi * uvdist * scipy.special.jv(1, z) 
+               + np.sum([params['beta_list'][m-1]          * 0.5 * (scipy.special.jv( m-1, z)  - scipy.special.jv(  m+1, z)) * np.pi * uvdist * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0)
+               + np.sum([np.conj(params['beta_list'][m-1]) * 0.5 * (scipy.special.jv( -m-1, z) - scipy.special.jv( -m+1, z)) * np.pi * uvdist * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list'])+1)],axis=0))
         elif pol == 'P' and len(params['beta_list_pol']) > 0:
             num_coeff = len(params['beta_list_pol'])
-            beta_factor = np.sum([params['beta_list_pol'][m + (num_coeff-1)//2] * 0.5 * (sps.jv( m-1, z)  - sps.jv(  m+1, z)) * np.pi * uvdist * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(-(num_coeff-1)//2,(num_coeff+1)//2)],axis=0)
+            beta_factor = np.sum([params['beta_list_pol'][m + (num_coeff-1)//2] * 0.5 * (scipy.special.jv( m-1, z)  - scipy.special.jv(  m+1, z)) * np.pi * uvdist * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(-(num_coeff-1)//2,(num_coeff+1)//2)],axis=0)
         elif pol == 'V' and len(params['beta_list_cpol']) > 0:
-            beta_factor = (-np.pi * uvdist * sps.jv(1, z) * params['beta_list_cpol'][0] 
-               + np.sum([params['beta_list_cpol'][m]          * 0.5 * (sps.jv( m-1, z)  - sps.jv(  m+1, z)) * np.pi * uvdist * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0)
-               + np.sum([np.conj(params['beta_list_cpol'][m]) * 0.5 * (sps.jv( -m-1, z) - sps.jv( -m+1, z)) * np.pi * uvdist * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0))
+            beta_factor = (-np.pi * uvdist * scipy.special.jv(1, z) * params['beta_list_cpol'][0] 
+               + np.sum([params['beta_list_cpol'][m]          * 0.5 * (scipy.special.jv( m-1, z)  - scipy.special.jv(  m+1, z)) * np.pi * uvdist * np.exp( 1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0)
+               + np.sum([np.conj(params['beta_list_cpol'][m]) * 0.5 * (scipy.special.jv( -m-1, z) - scipy.special.jv( -m+1, z)) * np.pi * uvdist * np.exp(-1j * m * (phi - np.pi/2.)) for m in range(1,len(params['beta_list_cpol']))],axis=0))
         else:
             beta_factor = 0.0
             
@@ -1051,10 +1042,10 @@ def sample_1model_grad_uv(u, v, model_type, params, pol='I', fit_pol=False, fit_
             # Add derivatives of the beta terms 
             for m in range(1,len(params['beta_list'])+1):
                 beta_grad_re =      params['F0'] * alpha_factor * (
-                   sps.jv( m, z) * np.exp( 1j * m * (phi - np.pi/2.)) + sps.jv(-m, z) * np.exp(-1j * m * (phi - np.pi/2.)) 
+                   scipy.special.jv( m, z) * np.exp( 1j * m * (phi - np.pi/2.)) + scipy.special.jv(-m, z) * np.exp(-1j * m * (phi - np.pi/2.)) 
                    * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0']))) 
                 beta_grad_im = 1j * params['F0'] * alpha_factor * (
-                   sps.jv( m, z) * np.exp( 1j * m * (phi - np.pi/2.)) - sps.jv(-m, z) * np.exp(-1j * m * (phi - np.pi/2.)) 
+                   scipy.special.jv( m, z) * np.exp( 1j * m * (phi - np.pi/2.)) - scipy.special.jv(-m, z) * np.exp(-1j * m * (phi - np.pi/2.)) 
                    * np.exp(1j * 2.0 * np.pi * (u * params['x0'] + v * params['y0']))) 
                 if COMPLEX_BASIS == 're-im':
                     grad.append(beta_grad_re)
@@ -1073,7 +1064,7 @@ def sample_1model_grad_uv(u, v, model_type, params, pol='I', fit_pol=False, fit_
             # Add derivatives of the beta terms 
             num_coeff = len(params['beta_list_pol'])
             for m in range(-(num_coeff-1)//2,(num_coeff+1)//2):
-                beta_grad_re = params['F0'] * alpha_factor * sps.jv( m, z) * np.exp( 1j * m * (phi - np.pi/2.)) 
+                beta_grad_re = params['F0'] * alpha_factor * scipy.special.jv( m, z) * np.exp( 1j * m * (phi - np.pi/2.)) 
                 beta_grad_im = 1j * beta_grad_re
                 if COMPLEX_BASIS == 're-im':
                     grad.append(beta_grad_re)
@@ -1966,7 +1957,7 @@ class Model(object):
 
         # Jones Matrix Corruption & Calibration
         if jones:
-            obsdata = simobs.add_jones_and_noise(obs, add_th_noise=add_th_noise,
+            obsdata = obs_simulate.add_jones_and_noise(obs, add_th_noise=add_th_noise,
                                                  opacitycal=opacitycal, ampcal=ampcal,
                                                  phasecal=phasecal, dcal=dcal, frcal=frcal, 
                                                  rlgaincal=rlgaincal,
@@ -1984,7 +1975,7 @@ class Model(object):
                                          timetype=obs.timetype, scantable=obs.scans)
 
             if inv_jones:
-                obsdata = simobs.apply_jones_inverse(obs, 
+                obsdata = obs_simulate.apply_jones_inverse(obs, 
                                                      opacitycal=opacitycal, dcal=dcal, frcal=frcal)
 
                 obs =  ehtim.obsdata.Obsdata(obs.ra, obs.dec, obs.rf, obs.bw, obsdata, obs.tarr,
@@ -2003,7 +1994,7 @@ class Model(object):
             if caltable_path:
                 print('WARNING: the caltable is only saved if you apply noise with a Jones Matrix')
 
-            obsdata = simobs.add_noise(obs, add_th_noise=add_th_noise,
+            obsdata = obs_simulate.add_noise(obs, add_th_noise=add_th_noise,
                                        ampcal=ampcal, phasecal=phasecal, opacitycal=opacitycal,
                                        stabilize_scan_phase=stabilize_scan_phase,
                                        stabilize_scan_amp=stabilize_scan_amp,
