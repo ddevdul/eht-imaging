@@ -1,60 +1,43 @@
-# image.py
-# an interferometric image class
-#
-#    Copyright (C) 2018 Andrew Chael
-#
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+An interferometric image class
 
-from __future__ import division
-from __future__ import print_function
+Copyright (C) 2022 Andrew Chael
 
-from builtins import str
-from builtins import range
-from builtins import object
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
 
 import sys
+sys.path.extend(["./observing", "./io"])
 import copy
 import math
 import numpy as np
-import numpy.matlib as matlib
-import matplotlib as mpl
+from numpy import matlib
+import matplotlib
 import matplotlib.pyplot as plt
-import scipy.optimize as opt
+import scipy.optimize
 import scipy.signal
-import scipy.ndimage.filters as filt
+import scipy.ndimage.filters
 import scipy.interpolate
-from scipy import ndimage as ndi
-
-try:
-    from skimage.feature import canny
-    from skimage.transform import hough_circle, hough_circle_peaks
-except ImportError:
-    print("Warning: scikit-image not installed! Cannot use hough transform")
-
-import ehtim.observing.obs_simulate as simobs
-import ehtim.observing.pulses as pulses
-import ehtim.io.save
-import ehtim.io.load
-import ehtim.const_def as ehc
-import ehtim.observing.obs_helpers as obsh
+from scipy import ndimage
+from skimage.feature import canny
+from skimage.transform import hough_circle, hough_circle_peaks
+from observing import obs_simulate, pulses, obs_helpers
+import io
+import const_def
 
 # TODO : add time to all images
 # TODO : add arbitrary center location
-
-###################################################################################################
-# Image object
-###################################################################################################
 
 
 class Image(object):
@@ -81,8 +64,8 @@ class Image(object):
 
     def __init__(self, image, psize, ra, dec, pa=0.0,
                  polrep='stokes', pol_prim=None,
-                 rf=ehc.RF_DEFAULT, pulse=ehc.PULSE_DEFAULT, source=ehc.SOURCE_DEFAULT,
-                 mjd=ehc.MJD_DEFAULT, time=0.):
+                 rf=const_def.RF_DEFAULT, pulse=const_def.PULSE_DEFAULT, source=const_def.SOURCE_DEFAULT,
+                 mjd=const_def.MJD_DEFAULT, time=0.):
         """A polarimetric image (in units of Jy/pixel).
 
            Args:
@@ -859,7 +842,7 @@ class Image(object):
                 (numpy.array): normal vector pointing to source in geocentric coordinates (m)
         """
 
-        sourcevec = np.array([np.cos(self.dec * ehc.DEGREE), 0, np.sin(self.dec * ehc.DEGREE)])
+        sourcevec = np.array([np.cos(self.dec * const_def.DEGREE), 0, np.sin(self.dec * const_def.DEGREE)])
         return sourcevec
 
     def fovx(self):
@@ -1446,7 +1429,7 @@ class Image(object):
         def blur(imarr, sigma):
             if np.any(np.imag(imarr) != 0):
                 return blur(np.real(imarr), sigma) + 1j * blur(np.imag(imarr), sigma)
-            imarr_blur = filt.gaussian_filter(imarr, (sigma, sigma))
+            imarr_blur = scipy.ndimage.filters.gaussian_filter(imarr, (sigma, sigma))
             return imarr_blur
 
         # Blur the primary image
@@ -1503,10 +1486,10 @@ class Image(object):
 
             imarr = imvec.reshape(self.ydim, self.xdim)
 
-            #sx = ndi.sobel(imarr, axis=0, mode='constant')
-            #sy = ndi.sobel(imarr, axis=1, mode='constant')
-            sx = ndi.sobel(imarr, axis=0, mode='nearest')
-            sy = ndi.sobel(imarr, axis=1, mode='nearest')
+            #sx = ndimage.sobel(imarr, axis=0, mode='constant')
+            #sy = ndimage.sobel(imarr, axis=1, mode='constant')
+            sx = ndimage.sobel(imarr, axis=0, mode='nearest')
+            sy = ndimage.sobel(imarr, axis=1, mode='nearest')
 
             # TODO: are these in the right order??
             if gradtype == 'x':
@@ -2019,8 +2002,8 @@ class Image(object):
         elif self.polrep == 'circ':
             im_stokes = self.switch_polrep(polrep_out='stokes')
         ivec = im_stokes.ivec.copy()
-        qvec = obsh.qimage(ivec, mag * np.ones(len(ivec)), angle * np.ones(len(ivec)))
-        uvec = obsh.uimage(ivec, mag * np.ones(len(ivec)), angle * np.ones(len(ivec)))
+        qvec = obs_helpers.qimage(ivec, mag * np.ones(len(ivec)), angle * np.ones(len(ivec)))
+        uvec = obs_helpers.uimage(ivec, mag * np.ones(len(ivec)), angle * np.ones(len(ivec)))
         vvec = cmag * np.sign(csign) * ivec
 
         # create the new stokes image object
@@ -2196,7 +2179,7 @@ class Image(object):
             addedflux = orig_totflux - zblval
 
         print('Adding a ' + str(addedflux) + ' Jy circular Gaussian of FWHM size ' +
-              str(gauss_sz / ehc.RADPERUAS) + ' uas')
+              str(gauss_sz / const_def.RADPERUAS) + ' uas')
 
         im_new = self.copy()
         im_new = im_new.pad(new_fov, new_fov)
@@ -2228,7 +2211,7 @@ class Image(object):
         if polrep_obs not in ['stokes', 'circ']:
             raise Exception("polrep_obs must be either 'stokes' or 'circ'")
 
-        data = simobs.sample_vis(self, uv, polrep_obs=polrep_obs, sgrscat=sgrscat, 
+        data = obs_simulate.sample_vis(self, uv, polrep_obs=polrep_obs, sgrscat=sgrscat, 
                                  ttype=ttype, cache=cache, fft_pad_factor=fft_pad_factor,
                                  zero_empty_pol=zero_empty_pol, verbose=verbose)
         return data
@@ -2268,8 +2251,8 @@ class Image(object):
         obsdata = copy.deepcopy(obs.data)
 
         # Extract uv datasample
-        uv = obsh.recarr_to_ndarr(obsdata[['u', 'v']], 'f8')
-        data = simobs.sample_vis(self, uv, sgrscat=sgrscat, polrep_obs=obs.polrep,
+        uv = obs_helpers.recarr_to_ndarr(obsdata[['u', 'v']], 'f8')
+        data = obs_simulate.sample_vis(self, uv, sgrscat=sgrscat, polrep_obs=obs.polrep,
                                  ttype=ttype, cache=cache, fft_pad_factor=fft_pad_factor,
                                  zero_empty_pol=zero_empty_pol, verbose=verbose)
 
@@ -2305,9 +2288,9 @@ class Image(object):
                      frcal=True, dcal=True,  rlgaincal=True,
                      stabilize_scan_phase=False, stabilize_scan_amp=False, 
                      neggains=False,
-                     taup=ehc.GAINPDEF,
-                     gain_offset=ehc.GAINPDEF, gainp=ehc.GAINPDEF,
-                     dterm_offset=ehc.DTERMPDEF,
+                     taup=const_def.GAINPDEF,
+                     gain_offset=const_def.GAINPDEF, gainp=const_def.GAINPDEF,
+                     dterm_offset=const_def.DTERMPDEF,
                      caltable_path=None, seed=False, sigmat=None, verbose=True):
         """Observe the image on the same baselines as an existing observation object and add noise.
 
@@ -2358,7 +2341,7 @@ class Image(object):
 
         # Jones Matrix Corruption & Calibration
         if jones:
-            obsdata = simobs.add_jones_and_noise(obs, add_th_noise=add_th_noise,
+            obsdata = obs_simulate.add_jones_and_noise(obs, add_th_noise=add_th_noise,
                                                  opacitycal=opacitycal, ampcal=ampcal,
                                                  phasecal=phasecal, frcal=frcal, dcal=dcal,
                                                  rlgaincal=rlgaincal,
@@ -2378,7 +2361,7 @@ class Image(object):
                                         timetype=obs.timetype, scantable=obs.scans)
 
             if inv_jones:
-                obsdata = simobs.apply_jones_inverse(obs,
+                obsdata = obs_simulate.apply_jones_inverse(obs,
                                                      opacitycal=opacitycal, dcal=dcal, frcal=frcal,
                                                      verbose=verbose)
 
@@ -2396,7 +2379,7 @@ class Image(object):
             if caltable_path:
                 print('WARNING: the caltable is only saved if you apply noise with a Jones Matrix')
 
-            obsdata = simobs.add_noise(obs, add_th_noise=add_th_noise,
+            obsdata = obs_simulate.add_noise(obs, add_th_noise=add_th_noise,
                                        opacitycal=opacitycal, ampcal=ampcal, phasecal=phasecal, 
                                        stabilize_scan_phase=stabilize_scan_phase,
                                        stabilize_scan_amp=stabilize_scan_amp,
@@ -2415,7 +2398,7 @@ class Image(object):
 
     def observe(self, array, tint, tadv, tstart, tstop, bw,
                 mjd=None, timetype='UTC', polrep_obs=None,
-                elevmin=ehc.ELEV_LOW, elevmax=ehc.ELEV_HIGH,
+                elevmin=const_def.ELEV_LOW, elevmax=const_def.ELEV_HIGH,
                 ttype='nfft', fft_pad_factor=2, fix_theta_GMST=False, 
                 sgrscat=False, add_th_noise=True,
                 jones=False, inv_jones=False,
@@ -2423,9 +2406,9 @@ class Image(object):
                 frcal=True, dcal=True, rlgaincal=True,
                 stabilize_scan_phase=False, stabilize_scan_amp=False,
                 neggains=False,
-                tau=ehc.TAUDEF, taup=ehc.GAINPDEF,
-                gain_offset=ehc.GAINPDEF, gainp=ehc.GAINPDEF, 
-                dterm_offset=ehc.DTERMPDEF, 
+                tau=const_def.TAUDEF, taup=const_def.GAINPDEF,
+                gain_offset=const_def.GAINPDEF, gainp=const_def.GAINPDEF, 
+                dterm_offset=const_def.DTERMPDEF, 
                 caltable_path=None, seed=False, sigmat=None, verbose=True):
         """Generate baselines from an array object and observe the image.
 
@@ -2524,9 +2507,9 @@ class Image(object):
                     frcal=True, dcal=True, rlgaincal=True,
                     stabilize_scan_phase=False, stabilize_scan_amp=False,
                     neggains=False,
-                    tau=ehc.TAUDEF, taup=ehc.GAINPDEF,
-                    gain_offset=ehc.GAINPDEF, gainp=ehc.GAINPDEF, 
-                    dterm_offset=ehc.DTERMPDEF,
+                    tau=const_def.TAUDEF, taup=const_def.GAINPDEF,
+                    gain_offset=const_def.GAINPDEF, gainp=const_def.GAINPDEF, 
+                    dterm_offset=const_def.DTERMPDEF,
                     caltable_path=None, seed=False, sigmat=None, verbose=True):
         """Generate baselines from a vex file and observes the image.
 
@@ -2608,7 +2591,7 @@ class Image(object):
 
             # Observe with the subarray over the scan interval
             t_start = vex.sched[i_scan]['start_hr']
-            t_stop = t_start + vex.sched[i_scan]['scan'][0]['scan_sec']/3600.0 - ehc.EP
+            t_stop = t_start + vex.sched[i_scan]['scan'][0]['scan_sec']/3600.0 - const_def.EP
 
             obs = self.observe(subarray, t_int, t_adv, t_start, t_stop, vex.bw_hz,
                                mjd=vex.sched[i_scan]['mjd_floor'], timetype='UTC',
@@ -2911,8 +2894,8 @@ class Image(object):
 
         # define radius range for Hough transform search
         if radius_range is None:
-            hough_radii = np.arange(int(10 * ehc.RADPERUAS / self.psize),
-                                    int(50 * ehc.RADPERUAS / self.psize))
+            hough_radii = np.arange(int(10 * const_def.RADPERUAS / self.psize),
+                                    int(50 * const_def.RADPERUAS / self.psize))
         else:
             hough_radii = np.linspace(
                 radius_range[0] /
@@ -2946,13 +2929,13 @@ class Image(object):
             else:
                 outlist.append([center_x, center_y, radius, accum_frac])
             print(accum_frac)
-            print("%i ring diameter: %0.1f microarcsec" % (i, 2 * radius * pdim / ehc.RADPERUAS))
+            print("%i ring diameter: %0.1f microarcsec" % (i, 2 * radius * pdim / const_def.RADPERUAS))
             if display_results:
                 if i > len(colors):
                     color = colors[-1]
                 else:
                     color = colors[i]
-                circ = mpl.patches.Circle((center_y, center_x), radius, fill=False, color=color)
+                circ = matplotlib.patches.Circle((center_y, center_x), radius, fill=False, color=color)
                 ax.add_patch(circ)
             i += 1
 
@@ -2987,8 +2970,8 @@ class Image(object):
                                  eig[0][0]**0.5 * (8. * np.log(2.))**0.5,
                                  np.mod(np.arctan2(eig[1][1][0], eig[1][1][1]) + np.pi, np.pi)))
         if units == 'natural':
-            gauss_params[0] /= ehc.RADPERUAS
-            gauss_params[1] /= ehc.RADPERUAS
+            gauss_params[0] /= const_def.RADPERUAS
+            gauss_params[1] /= const_def.RADPERUAS
             gauss_params[2] *= 180. / np.pi
 
         return gauss_params
@@ -3012,20 +2995,20 @@ class Image(object):
                        for v in np.arange(-u_max, u_max * 1.001, u_max / 4.0)])
         u = uv[:, 0]
         v = uv[:, 1]
-        vis = np.dot(obsh.ftmatrix(self.psize, self.xdim, self.ydim, uv, pulse=self.pulse),
+        vis = np.dot(obs_helpers.ftmatrix(self.psize, self.xdim, self.ydim, uv, pulse=self.pulse),
                      self.imvec)
 
         if paramguess is None:
             paramguess = (self.psize * self.xdim / 4.0, self.psize * self.xdim / 4.0, 0.)
 
         def errfunc(p):
-            vismodel = obsh.gauss_uv(u, v, self.total_flux(), p, x=0., y=0.)
+            vismodel = obs_helpers.gauss_uv(u, v, self.total_flux(), p, x=0., y=0.)
             err = np.sum((np.abs(vis) - np.abs(vismodel))**2)
             return err
 
         # minimizer params
         optdict = {'maxiter': 5000, 'maxfev': 5000, 'xtol': paramguess[0] / 1e9, 'ftol': 1e-10}
-        res = opt.minimize(errfunc, paramguess, method='Nelder-Mead', options=optdict)
+        res = scipy.optimize.minimize(errfunc, paramguess, method='Nelder-Mead', options=optdict)
 
         # Return in the form [maj, min, PA]
         x = res.x
@@ -3307,21 +3290,21 @@ class Image(object):
 
         elif cbar_unit[1] in ['$arcseconds$^2$', 'as$^2$', 'as2']:
             areaunit = 'as$^2$'
-            fovfactor = self.xdim * self.psize * (1 / ehc.RADPERAS)
+            fovfactor = self.xdim * self.psize * (1 / const_def.RADPERAS)
             factor *= (1. / fovfactor)**2 / (1. / self.xdim)**2
             if power != 0:
                 areaunit = areaunit + (r' ($10^{{' + str(power) + '}}$ K)')
 
         elif cbar_unit[1] in [r'$\m-arcseconds$^2$', 'mas$^2$', 'mas2']:
             areaunit = 'mas$^2$'
-            fovfactor = self.xdim * self.psize * (1 / ehc.RADPERUAS) / 1000.
+            fovfactor = self.xdim * self.psize * (1 / const_def.RADPERUAS) / 1000.
             factor *= (1. / fovfactor)**2 / (1. / self.xdim)**2
             if power != 0:
                 areaunit = areaunit + (r' ($10^{{' + str(power) + '}}$ K)')
 
         elif cbar_unit[1] in [r'$\mu$-arcseconds$^2$', r'$\mu$as$^2$', 'muas2']:
             areaunit = r'$\mu$as$^2$'
-            fovfactor = self.xdim * self.psize * (1 / ehc.RADPERUAS)
+            fovfactor = self.xdim * self.psize * (1 / const_def.RADPERUAS)
             factor *= (1. / fovfactor)**2 / (1. / self.xdim)**2
             if power != 0:
                 areaunit = areaunit + (r' ($10^{{' + str(power) + '}}$ K)')
@@ -3364,7 +3347,7 @@ class Image(object):
                 unit = r'$\|P|$'
                 cfun_p = 'afmhot'
             elif pol.lower() == 'chi' or pol.lower() == 'evpa':
-                imvec = self.chivec.copy() / ehc.DEGREE
+                imvec = self.chivec.copy() / const_def.DEGREE
                 unit = r'$\chi (^\circ)$'
                 factor = 1
                 cbar_lims_p = [0, 180]
@@ -3686,7 +3669,7 @@ class Image(object):
                            width=.01 * self.xdim, units='x', pivot='mid', color='w', angles='uv',
                            scale=1.0 / thin)
                 plt.quiver(x, y, a, b, mthin,
-                           norm=mpl.colors.Normalize(vmin=0, vmax=1.), cmap=vec_cfun,
+                           norm=matplotlib.colors.Normalize(vmin=0, vmax=1.), cmap=vec_cfun,
                            headaxislength=20, headwidth=1, headlength=.01, minlength=0, minshaft=1,
                            width=.007 * self.xdim, units='x', pivot='mid', angles='uv',
                            scale=1.1 / thin)
@@ -3718,8 +3701,8 @@ class Image(object):
         # Label the plot
         ax = plt.gca()
         if label_type == 'ticks':
-            xticks = obsh.ticks(self.xdim, self.psize / ehc.RADPERAS / 1e-6)
-            yticks = obsh.ticks(self.ydim, self.psize / ehc.RADPERAS / 1e-6)
+            xticks = obs_helpers.ticks(self.xdim, self.psize / const_def.RADPERAS / 1e-6)
+            yticks = obs_helpers.ticks(self.ydim, self.psize / const_def.RADPERAS / 1e-6)
             plt.xticks(xticks[0], xticks[1])
             plt.yticks(yticks[0], yticks[1])
             plt.xlabel(r'Relative RA ($\mu$as)')
@@ -3727,7 +3710,7 @@ class Image(object):
 
         elif label_type == 'scale':
             plt.axis('off')
-            fov_uas = self.xdim * self.psize / ehc.RADPERUAS  # get the fov in uas
+            fov_uas = self.xdim * self.psize / const_def.RADPERUAS  # get the fov in uas
             roughfactor = 1. / 3.  # make the bar about 1/3 the fov
             fov_scale = int(math.ceil(fov_uas * roughfactor / 10.0)) * 10
             start = self.xdim * roughfactor / 3.0  # select the start location
@@ -3852,8 +3835,8 @@ class Image(object):
         plt.subplot(111)
         plt.title('%s   MJD %i  %.2f GHz' % (self.source, self.mjd, self.rf / 1e9), fontsize=20)
         plt.imshow(composite_img, interpolation=interp)
-        xticks = obsh.ticks(im0_pad.xdim, im0_pad.psize / ehc.RADPERAS / 1e-6)
-        yticks = obsh.ticks(im0_pad.ydim, im0_pad.psize / ehc.RADPERAS / 1e-6)
+        xticks = obs_helpers.ticks(im0_pad.xdim, im0_pad.psize / const_def.RADPERAS / 1e-6)
+        yticks = obs_helpers.ticks(im0_pad.ydim, im0_pad.psize / const_def.RADPERAS / 1e-6)
         plt.xticks(xticks[0], xticks[1])
         plt.yticks(yticks[0], yticks[1])
         plt.xlabel(r'Relative RA ($\mu$as)')
@@ -3876,7 +3859,7 @@ class Image(object):
            Returns:
         """
 
-        ehtim.io.save.save_im_txt(self, fname)
+        io.save.save_im_txt(self, fname)
         return
 
     def save_fits(self, fname):
@@ -3887,7 +3870,7 @@ class Image(object):
 
            Returns:
         """
-        ehtim.io.save.save_im_fits(self, fname)
+        io.save.save_im_fits(self, fname)
         return
 
 
@@ -3895,7 +3878,7 @@ class Image(object):
 # Image creation functions
 ###################################################################################################
 
-def make_square(obs, npix, fov, pulse=ehc.PULSE_DEFAULT, polrep='stokes', pol_prim=None):
+def make_square(obs, npix, fov, pulse=const_def.PULSE_DEFAULT, polrep='stokes', pol_prim=None):
     """Make an empty square image.
 
        Args:
@@ -3917,9 +3900,9 @@ def make_square(obs, npix, fov, pulse=ehc.PULSE_DEFAULT, polrep='stokes', pol_pr
     return outim
 
 
-def make_empty(npix, fov, ra, dec, rf=ehc.RF_DEFAULT, source=ehc.SOURCE_DEFAULT,
-               polrep='stokes', pol_prim=None, pulse=ehc.PULSE_DEFAULT,
-               mjd=ehc.MJD_DEFAULT, time=0.):
+def make_empty(npix, fov, ra, dec, rf=const_def.RF_DEFAULT, source=const_def.SOURCE_DEFAULT,
+               polrep='stokes', pol_prim=None, pulse=const_def.PULSE_DEFAULT,
+               mjd=const_def.MJD_DEFAULT, time=0.):
     """Make an empty square image.
 
        Args:
@@ -3971,11 +3954,11 @@ def load_image(image, display=False, aipscc=False):
         pass
     if isinstance(image, str) or is_unicode:
         if image.endswith('.fits'):
-            im = ehtim.io.load.load_im_fits(image, aipscc=aipscc)
+            im = io.load.load_im_fits(image, aipscc=aipscc)
         elif image.endswith('.txt'):
-            im = ehtim.io.load.load_im_txt(image)
+            im = io.load.load_im_txt(image)
         elif image.endswith('.h5'):
-            im = ehtim.io.load.load_im_hdf5(image)
+            im = io.load.load_im_hdf5(image)
         else:
             print("Image format is not recognized. Was expecting .fits, .txt, or Image.")
             print(" Got <.{0}>. Returning False.".format(image.split('.')[-1]))
@@ -3995,7 +3978,7 @@ def load_image(image, display=False, aipscc=False):
     return im
 
 
-def load_txt(fname, polrep='stokes', pol_prim=None, pulse=ehc.PULSE_DEFAULT, zero_pol=True):
+def load_txt(fname, polrep='stokes', pol_prim=None, pulse=const_def.PULSE_DEFAULT, zero_pol=True):
     """Read in an image from a text file.
 
        Args:
@@ -4009,11 +3992,11 @@ def load_txt(fname, polrep='stokes', pol_prim=None, pulse=ehc.PULSE_DEFAULT, zer
             (Image): loaded image object
     """
 
-    return ehtim.io.load.load_im_txt(fname, pulse=pulse, polrep=polrep,
+    return io.load.load_im_txt(fname, pulse=pulse, polrep=polrep,
                                      pol_prim=pol_prim, zero_pol=True)
 
 
-def load_fits(fname, aipscc=False, pulse=ehc.PULSE_DEFAULT,
+def load_fits(fname, aipscc=False, pulse=const_def.PULSE_DEFAULT,
               polrep='stokes', pol_prim=None, zero_pol=False):
     """Read in an image from a FITS file.
 
@@ -4029,5 +4012,5 @@ def load_fits(fname, aipscc=False, pulse=ehc.PULSE_DEFAULT,
            (Image): loaded image object
     """
 
-    return ehtim.io.load.load_im_fits(fname, aipscc=aipscc, pulse=pulse,
+    return io.load.load_im_fits(fname, aipscc=aipscc, pulse=pulse,
                                       polrep=polrep, pol_prim=pol_prim, zero_pol=zero_pol)
