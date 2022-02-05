@@ -1,38 +1,27 @@
-# DataFrames.py
-# variety of statistical functions useful for 
-#
-#    Copyright (C) 2018 Maciek Wielgus
-#
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+variety of statistical functions useful for 
 
-from __future__ import division
-from __future__ import print_function
-from builtins import str
-from builtins import map
-from builtins import range
+Copyright (C) 2018 Maciek Wielgus
 
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
+import datetime
 import numpy as np 
-
-try:
-    import pandas as pd
-except ImportError:
-    print("Warning: pandas not installed!")
-    print("Please install pandas to use statistics package!")
-
-import datetime as datetime
-from astropy.time import Time
-from ehtim.statistics.stats import *
+import pandas as pd
+import astropy.time
+import stats
 
 def make_df(obs,polarization='unknown',band='unknown',round_s=0.1):
 
@@ -70,9 +59,9 @@ def make_df(obs,polarization='unknown',band='unknown',round_s=0.1):
     df['amp'] = list(map(np.abs,df[vis1]))
     df['phase'] = list(map(lambda x: (180./np.pi)*np.angle(x),df[vis1]))
     df['snr'] = df['amp']/df[sig1]
-    df['datetime'] = Time(df['mjd'], format='mjd').datetime
+    df['datetime'] = astropy.time.Time(df['mjd'], format='mjd').datetime
     df['datetime'] =list(map(lambda x: round_time(x,round_s=round_s),df['datetime']))
-    df['jd'] = Time(df['mjd'], format='mjd').jd
+    df['jd'] = astropy.time.Time(df['mjd'], format='mjd').jd
     df['polarization'] = polarization
     df['band'] = band
     df['source'] = sour
@@ -104,9 +93,9 @@ def make_amp(obs,debias=True,polarization='unknown',band='unknown',round_s=0.1):
         amp2 = np.maximum(np.asarray(df['amp'])**2-np.asarray(df['sigma'])**2,np.asarray(df['sigma'])**2)
         df['amp'] = np.sqrt(amp2)
     df['phase'] = list(map(lambda x: (180./np.pi)*np.angle(x),df['vis']))
-    df['datetime'] = Time(df['mjd'], format='mjd').datetime
+    df['datetime'] = astropy.time.Time(df['mjd'], format='mjd').datetime
     df['datetime'] =list(map(lambda x: round_time(x,round_s=round_s),df['datetime']))
-    df['jd'] = Time(df['mjd'], format='mjd').jd
+    df['jd'] = astropy.time.Time(df['mjd'], format='mjd').jd
     df['polarization'] = polarization
     df['band'] = band
     df['snr'] = df['amp']/df['sigma']
@@ -164,7 +153,7 @@ def coh_avg_vis(obs,dt=0,scan_avg=False,return_type='rec',err_type='predicted',n
             vis['udummy'] = vis[vis3]
             vis['vdummy'] = vis[vis4]
             meanF = lambda x: np.nanmean(np.asarray(x))
-            meanerrF = lambda x: bootstrap(np.abs(x), np.mean, num_samples=num_samples,wrapping_variable=False)
+            meanerrF = lambda x: stats.bootstrap(np.abs(x), np.mean, num_samples=num_samples,wrapping_variable=False)
             aggregated[vis1] = meanF
             aggregated[vis2] = meanF
             aggregated[vis3] = meanF
@@ -211,7 +200,7 @@ def coh_avg_vis(obs,dt=0,scan_avg=False,return_type='rec',err_type='predicted',n
             #round datetime and time to the begining of the bucket and add half of a bucket time
             half_bucket = dt/2.
             vis_avg['datetime'] =  list(map(lambda x: t0 + datetime.timedelta(seconds= int(dt*x) + half_bucket), vis_avg['round_time']))
-            vis_avg['time']  = list(map(lambda x: (Time(x).mjd-obs.mjd)*24., vis_avg['datetime']))
+            vis_avg['time']  = list(map(lambda x: (astropy.time.Time(x).mjd-obs.mjd)*24., vis_avg['datetime']))
         else:
             #drop values that couldn't be matched to any scan
             vis_avg.drop(list(vis_avg[vis_avg.scan<0].index.values),inplace=True)
@@ -347,16 +336,16 @@ def incoh_avg_vis(obs,dt=0,debias=True,scan_avg=False,return_type='rec',rec_type
         vis['qdummy'] = list(zip(np.abs(vis['qvis']),vis['qsigma']))
 
         if err_type=='predicted':
-            aggregated['dummy'] = lambda x: mean_incoh_avg(x,debias=debias)
-            aggregated['udummy'] = lambda x: mean_incoh_avg(x,debias=debias)
-            aggregated['vdummy'] = lambda x: mean_incoh_avg(x,debias=debias)
-            aggregated['qdummy'] = lambda x: mean_incoh_avg(x,debias=debias)
+            aggregated['dummy'] = lambda x: stats.mean_incoh_avg(x,debias=debias)
+            aggregated['udummy'] = lambda x: stats.mean_incoh_avg(x,debias=debias)
+            aggregated['vdummy'] = lambda x: stats.mean_incoh_avg(x,debias=debias)
+            aggregated['qdummy'] = lambda x: stats.mean_incoh_avg(x,debias=debias)
 
         elif err_type=='measured':
-            aggregated['dummy'] = lambda x: bootstrap(np.abs(np.asarray([y[0] for y in x])), np.mean, num_samples=num_samples,wrapping_variable=False)
-            aggregated['udummy'] = lambda x: bootstrap(np.abs(np.asarray([y[0] for y in x])), np.mean, num_samples=num_samples,wrapping_variable=False)
-            aggregated['vdummy'] = lambda x: bootstrap(np.abs(np.asarray([y[0] for y in x])), np.mean, num_samples=num_samples,wrapping_variable=False)
-            aggregated['qdummy'] = lambda x: bootstrap(np.abs(np.asarray([y[0] for y in x])), np.mean, num_samples=num_samples,wrapping_variable=False)
+            aggregated['dummy'] = lambda x: stats.bootstrap(np.abs(np.asarray([y[0] for y in x])), np.mean, num_samples=num_samples,wrapping_variable=False)
+            aggregated['udummy'] = lambda x: stats.bootstrap(np.abs(np.asarray([y[0] for y in x])), np.mean, num_samples=num_samples,wrapping_variable=False)
+            aggregated['vdummy'] = lambda x: stats.bootstrap(np.abs(np.asarray([y[0] for y in x])), np.mean, num_samples=num_samples,wrapping_variable=False)
+            aggregated['qdummy'] = lambda x: stats.bootstrap(np.abs(np.asarray([y[0] for y in x])), np.mean, num_samples=num_samples,wrapping_variable=False)
 
         #ACTUAL AVERAGING
         vis_avg = vis.groupby(grouping).agg(aggregated).reset_index()
@@ -388,7 +377,7 @@ def incoh_avg_vis(obs,dt=0,debias=True,scan_avg=False,return_type='rec',rec_type
             #round datetime and time to the begining of the bucket and add half of a bucket time
             half_bucket = dt/2.
             vis_avg['datetime'] =  list(map(lambda x: t0 + datetime.timedelta(seconds= int(dt*x) + half_bucket), vis_avg['round_time']))
-            vis_avg['time']  = list(map(lambda x: (Time(x).mjd-obs.mjd)*24., vis_avg['datetime']))
+            vis_avg['time']  = list(map(lambda x: (astropy.time.Time(x).mjd-obs.mjd)*24., vis_avg['datetime']))
         else:
             #drop values that couldn't be matched to any scan
             vis_avg.drop(list(vis_avg[vis_avg.scan<0].index.values),inplace=True)
@@ -418,9 +407,9 @@ def make_cphase_df(obs,band='unknown',polarization='unknown',mode='all',count='m
     df['fmjd'] = df['time']/24.
     df['mjd'] = obs.mjd + df['fmjd']
     df['triangle'] = list(map(lambda x: x[0]+'-'+x[1]+'-'+x[2],zip(df['t1'],df['t2'],df['t3'])))
-    df['datetime'] = Time(df['mjd'], format='mjd').datetime
+    df['datetime'] = astropy.time.Time(df['mjd'], format='mjd').datetime
     df['datetime'] =list(map(lambda x: round_time(x,round_s=round_s),df['datetime']))
-    df['jd'] = Time(df['mjd'], format='mjd').jd
+    df['jd'] = astropy.time.Time(df['mjd'], format='mjd').jd
     df['polarization'] = polarization
     df['band'] = band
     df['source'] = sour
@@ -480,9 +469,9 @@ def make_cphase_diag_df(obs,vtype='vis',band='unknown',polarization='unknown',co
 
     df['fmjd'] = df['time']/24.
     df['mjd'] = obs.mjd + df['fmjd']
-    df['datetime'] = Time(df['mjd'], format='mjd').datetime
+    df['datetime'] = astropy.time.Time(df['mjd'], format='mjd').datetime
     df['datetime'] = list(map(lambda x: round_time(x,round_s=round_s),df['datetime']))
-    df['jd'] = Time(df['mjd'], format='mjd').jd
+    df['jd'] = astropy.time.Time(df['mjd'], format='mjd').jd
     df['polarization'] = polarization
     df['band'] = band
     df['source'] = sour
@@ -506,9 +495,9 @@ def make_camp_df(obs,ctype='logcamp',debias=False,band='unknown',polarization='u
     df['fmjd'] = df['time']/24.
     df['mjd'] = obs.mjd + df['fmjd']
     df['quadrangle'] = list(map(lambda x: x[0]+'-'+x[1]+'-'+x[2]+'-'+x[3],zip(df['t1'],df['t2'],df['t3'],df['t4'])))
-    df['datetime'] = Time(df['mjd'], format='mjd').datetime
+    df['datetime'] = astropy.time.Time(df['mjd'], format='mjd').datetime
     df['datetime'] =list(map(lambda x: round_time(x,round_s=round_s),df['datetime']))
-    df['jd'] = Time(df['mjd'], format='mjd').jd
+    df['jd'] = astropy.time.Time(df['mjd'], format='mjd').jd
     df['polarization'] = polarization
     df['band'] = band
     df['source'] = sour
@@ -569,9 +558,9 @@ def make_logcamp_diag_df(obs,debias=True,band='unknown',polarization='unknown',m
 
     df['fmjd'] = df['time']/24.
     df['mjd'] = obs.mjd + df['fmjd']
-    df['datetime'] = Time(df['mjd'], format='mjd').datetime
+    df['datetime'] = astropy.time.Time(df['mjd'], format='mjd').datetime
     df['datetime'] = list(map(lambda x: round_time(x,round_s=round_s),df['datetime']))
-    df['jd'] = Time(df['mjd'], format='mjd').jd
+    df['jd'] = astropy.time.Time(df['mjd'], format='mjd').jd
     df['polarization'] = polarization
     df['band'] = band
     df['source'] = sour
@@ -595,9 +584,9 @@ def make_bsp_df(obs,band='unknown',polarization='unknown',mode='all',count='min'
     df['fmjd'] = df['time']/24.
     df['mjd'] = obs.mjd + df['fmjd']
     df['triangle'] = list(map(lambda x: x[0]+'-'+x[1]+'-'+x[2],zip(df['t1'],df['t2'],df['t3'])))
-    df['datetime'] = Time(df['mjd'], format='mjd').datetime
+    df['datetime'] = astropy.time.Time(df['mjd'], format='mjd').datetime
     df['datetime'] =list(map(lambda x: round_time(x,round_s=round_s),df['datetime']))
-    df['jd'] = Time(df['mjd'], format='mjd').jd
+    df['jd'] = astropy.time.Time(df['mjd'], format='mjd').jd
     df['polarization'] = polarization
     df['band'] = band
     df['source'] = sour
@@ -629,13 +618,13 @@ def average_cphases(cdf,dt,return_type='rec',err_type='predicted',num_samples=10
     #AVERAGING-------------------------------    
     if err_type=='measured':
         cdf2['dummy'] = cdf2['cphase']
-        aggregated['dummy'] = lambda x: bootstrap(x, circular_mean, num_samples=num_samples,wrapping_variable=True)
+        aggregated['dummy'] = lambda x: stats.bootstrap(x, stats.circular_mean, num_samples=num_samples,wrapping_variable=True)
     elif err_type=='predicted':
-        aggregated['cphase'] = circular_mean
+        aggregated['cphase'] = stats.circular_mean
         aggregated['sigmacp'] = lambda x: np.sqrt(np.sum(x**2)/len(x)**2)
     else:
         print("Error type can only be 'predicted' or 'measured'! Assuming 'predicted'.")
-        aggregated['cphase'] = circular_mean
+        aggregated['cphase'] = stats.circular_mean
         aggregated['sigmacp'] = lambda x: np.sqrt(np.sum(x**2)/len(x)**2)
 
     #ACTUAL AVERAGING
@@ -648,7 +637,7 @@ def average_cphases(cdf,dt,return_type='rec',err_type='predicted',num_samples=10
     # snrcut
     # CHECK 
     if snrcut==0:
-        snrcut=EP
+        snrcut=stats.EP
     cdf2 = cdf2[cdf2['sigmacp'] < 180./np.pi/snrcut].copy()  # TODO CHECK
 
     #round datetime
@@ -733,7 +722,7 @@ def average_camp(cdf,dt,return_type='rec',err_type='predicted',num_samples=int(1
     #AVERAGING-------------------------------    
     if err_type=='measured':
         cdf2['dummy'] = cdf2['camp']
-        aggregated['dummy'] = lambda x: bootstrap(x, np.mean, num_samples=num_samples,wrapping_variable=False)
+        aggregated['dummy'] = lambda x: stats.bootstrap(x, np.mean, num_samples=num_samples,wrapping_variable=False)
     elif err_type=='predicted':
         aggregated['camp'] = np.mean
         aggregated['sigmaca'] = lambda x: np.sqrt(np.sum(x**2)/len(x)**2)
@@ -770,28 +759,28 @@ def df_to_rec(df,product_type):
     """
     if product_type=='cphase':
         out= df[['time','t1','t2','t3','u1','v1','u2','v2','u3','v3','cphase','sigmacp']].to_records(index=False)
-        return np.array(out,dtype=DTCPHASE)
+        return np.array(out,dtype=stats.DTCPHASE)
     elif product_type=='camp':
         out=  df[['time','t1','t2','t3','t4','u1','v1','u2','v2','u3','v3','u4','v4','camp','sigmaca']].to_records(index=False)
-        return np.array(out,dtype=DTCAMP)
+        return np.array(out,dtype=stats.DTCAMP)
     elif product_type=='vis':
         out=  df[['time','tint','t1','t2','tau1','tau2','u','v','vis','qvis','uvis','vvis','sigma','qsigma','usigma','vsigma']].to_records(index=False)
-        return np.array(out,dtype=DTPOL_STOKES)
+        return np.array(out,dtype=stats.DTPOL_STOKES)
     elif product_type=='vis_circ':
         out=  df[['time','tint','t1','t2','tau1','tau2','u','v','rrvis','llvis','rlvis','lrvis','rrsigma','llsigma','rlsigma','lrsigma']].to_records(index=False)
-        return np.array(out,dtype=DTPOL_CIRC)
+        return np.array(out,dtype=stats.DTPOL_CIRC)
     elif product_type=='amp':
         out=  df[['time','tint','t1','t2','u','v','amp','sigma']].to_records(index=False)
-        return np.array(out,dtype=DTAMP)
+        return np.array(out,dtype=stats.DTAMP)
     elif product_type=='bispec':
         out=  df[['time','t1','t2','t3','u1','v1','u2','v2','u3','v3','bispec','sigmab']].to_records(index=False)
-        return np.array(out,dtype=DTBIS)
+        return np.array(out,dtype=stats.DTBIS)
     elif product_type=='cphase_diag':
         out= df[['time','cphase','sigmacp','triangles','u','v','tform_matrix']].to_records(index=False)
-        return np.array(out,dtype=DTCPHASEDIAG)
+        return np.array(out,dtype=stats.DTCPHASEDIAG)
     elif product_type=='logcamp_diag':
         out= df[['time','camp','sigmaca','quadrangles','u','v','tform_matrix']].to_records(index=False)
-        return np.array(out,dtype=DTLOGCAMPDIAG)
+        return np.array(out,dtype=stats.DTLOGCAMPDIAG)
 
 
 def round_time(t,round_s=0.1):
@@ -1025,7 +1014,6 @@ def match_multiple_frames(frames, what_is_same, dt = 0,uniquely=True):
 def add_gmst(df):
     #Lindy Blackburn's work borrowed from eat
     """add *gmst* column to data frame with *datetime* field using astropy for conversion"""
-    from astropy import time
     g = df.groupby('datetime')
     (timestamps, indices) = list(zip(*iter(g.groups.items())))
     # this broke in pandas 0.9 with API changes
@@ -1036,7 +1024,7 @@ def add_gmst(df):
         times_unix = np.array([1e-9 * t.value for t in timestamps]) # will be int64's
     else:
         raise Exception("do not know how to convert timestamp of type " + repr(type(timestamps[0])))
-    times_gmst = time.Time(
+    times_gmst = astropy.time.Time(
         times_unix, format='unix').sidereal_time('mean', 'greenwich').hour # vectorized
     df['gmst'] = 0. # initialize new column
     for (gmst, idx) in zip(times_gmst, indices):
