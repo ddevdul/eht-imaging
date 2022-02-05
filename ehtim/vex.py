@@ -1,36 +1,28 @@
-# vex.py
-# a interferometric array vex schedule class
-#
-#    Copyright (C) 2018 Hotaka Shiokawa
-#
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+a interferometric array vex schedule class
 
+Copyright (C) 2022 Hotaka Shiokawa
 
-from __future__ import division
-from __future__ import print_function
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-from builtins import str
-from builtins import range
-from builtins import object
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
-import numpy as np
-import re
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
 
-from astropy.time import Time
 import os
-import ehtim.array
-import ehtim.const_def as ehc
+import re
+import numpy as np
+from astropy.time import Time
+import array
+import const_def
 
 ###################################################################################################
 # Vex object
@@ -173,7 +165,7 @@ class Vex(object):
         # TODO this does not store d-term and pol cal. information!
         tdataout = [np.array((x[0], float(x[1]), float(x[2]), float(x[3]), float(x[4]), float(x[4]),
                               0.0, 0.0, 0.0, 0.0, 0.0),
-                             dtype=ehc.DTARR) for x in sites]
+                             dtype=const_def.DTARR) for x in sites]
 
         tdataout = np.array(tdataout)
         self.array = ehtim.array.Array(tdataout)
