@@ -1,40 +1,34 @@
-# movie.py
-# a interferometric movie class
-#
-#    Copyright (C) 2018 Andrew Chael
-#
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+A interferometric movie class
 
-from __future__ import division
-from __future__ import print_function
+Copyright (C) 2018 Andrew Chael
 
-from builtins import str
-from builtins import range
-from builtins import object
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-import string
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
+import sys
 import numpy as np
 import scipy.interpolate
-import scipy.ndimage.filters as filt
-
+from scipy.ndimage import filters
+sys.path.extend(["ehtim"])
 import ehtim.image
 import ehtim.obsdata
-import ehtim.observing.obs_simulate as simobs
+from ehtim.observing import obs_simulate
 import ehtim.io.save
 import ehtim.io.load
-import ehtim.const_def as ehc
-import ehtim.observing.obs_helpers as obsh
+import ehtim.const_def
+from ehtim.observing import obs_helpers
 
 INTERPOLATION_KINDS = ['linear', 'nearest', 'zero', 'slinear',
                        'quadratic', 'cubic', 'previous', 'next']
@@ -72,10 +66,10 @@ class Movie(object):
     """
 
     def __init__(self, frames, times, psize, ra, dec,
-                 rf=ehc.RF_DEFAULT, polrep='stokes', pol_prim=None,
-                 pulse=ehc.PULSE_DEFAULT, source=ehc.SOURCE_DEFAULT,
-                 mjd=ehc.MJD_DEFAULT,
-                 bounds_error=ehc.BOUNDS_ERROR, interp=ehc.INTERP_DEFAULT):
+                 rf=ehtim.const_def.RF_DEFAULT, polrep='stokes', pol_prim=None,
+                 pulse=ehtim.const_def.PULSE_DEFAULT, source=ehtim.const_def.SOURCE_DEFAULT,
+                 mjd=ehtim.const_def.MJD_DEFAULT,
+                 bounds_error=ehtim.const_def.BOUNDS_ERROR, interp=ehtim.const_def.INTERP_DEFAULT):
         """A polarimetric image (in units of Jy/pixel).
 
            Args:
@@ -959,7 +953,7 @@ class Movie(object):
         sigma_x_pol = fwhm_x_pol / self.psize / (2. * np.sqrt(2. * np.log(2.)))
 
         arr = np.array([im.imvec.reshape(self.ydim, self.xdim) for im in frames])
-        arr = filt.gaussian_filter(arr, (sigma_t, sigma_x, sigma_x))
+        arr = filters.gaussian_filter(arr, (sigma_t, sigma_x, sigma_x))
 
         # Make a new blurred movie
         arglist, argdict = self.movie_args()
@@ -974,7 +968,7 @@ class Movie(object):
 
             if len(polframes):
                 arr = np.array([imvec.reshape(self.ydim, self.xdim) for imvec in polframes])
-                arr = filt.gaussian_filter(arr, (sigma_t, sigma_x_pol, sigma_x_pol))
+                arr = filters.gaussian_filter(arr, (sigma_t, sigma_x_pol, sigma_x_pol))
                 movie_blur.add_pol_movie(arr, pol)
 
         return movie_blur
@@ -1054,7 +1048,7 @@ class Movie(object):
                                         (time, self.start_hr, self.stop_hr))
 
             # Get the frame visibilities
-            uv = obsh.recarr_to_ndarr(obsdata[['u', 'v']], 'f8')
+            uv = obs_helpers.recarr_to_ndarr(obsdata[['u', 'v']], 'f8')
 
             try:
                 im = self.get_image(time)
@@ -1062,7 +1056,7 @@ class Movie(object):
                 raise Exception("Interpolation error for time %f: movie range %f--%f" %
                                 (time, self.start_hr, self.stop_hr))
 
-            data = simobs.sample_vis(im, uv, sgrscat=sgrscat, polrep_obs=obs.polrep,
+            data = obs_simulate.sample_vis(im, uv, sgrscat=sgrscat, polrep_obs=obs.polrep,
                                      ttype=ttype, fft_pad_factor=fft_pad_factor,
                                      zero_empty_pol=zero_empty_pol, verbose=verbose)
             verbose = False # only print for one frame
@@ -1107,9 +1101,9 @@ class Movie(object):
                      frcal=True, dcal=True, rlgaincal=True,
                      stabilize_scan_phase=False, stabilize_scan_amp=False,
                      neggains=False,
-                     taup=ehc.GAINPDEF,
-                     gain_offset=ehc.GAINPDEF, gainp=ehc.GAINPDEF, 
-                     dterm_offset=ehc.DTERMPDEF,
+                     taup=ehtim.const_def.GAINPDEF,
+                     gain_offset=ehtim.const_def.GAINPDEF, gainp=ehtim.const_def.GAINPDEF, 
+                     dterm_offset=ehtim.const_def.DTERMPDEF,
                      caltable_path=None, seed=False, sigmat=None, verbose=True):
         """Observe the image on the same baselines as an existing observation object and add noise.
 
@@ -1163,7 +1157,7 @@ class Movie(object):
 
         # Jones Matrix Corruption & Calibration
         if jones:
-            obsdata = simobs.add_jones_and_noise(obs, add_th_noise=add_th_noise,
+            obsdata = obs_simulate.add_jones_and_noise(obs, add_th_noise=add_th_noise,
                                                  opacitycal=opacitycal, ampcal=ampcal,
                                                  phasecal=phasecal, frcal=frcal, dcal=dcal,
                                                  rlgaincal=rlgaincal,
@@ -1183,7 +1177,7 @@ class Movie(object):
                                         timetype=obs.timetype, scantable=obs.scans)
 
             if inv_jones:
-                obsdata = simobs.apply_jones_inverse(obs,
+                obsdata = obs_simulate.apply_jones_inverse(obs,
                                                      opacitycal=opacitycal, dcal=dcal, frcal=frcal,
                                                      verbose=verbose)
 
@@ -1200,7 +1194,7 @@ class Movie(object):
             if caltable_path:
                 print('WARNING: the caltable is only saved if you apply noise with a Jones Matrix')
 
-            obsdata = simobs.add_noise(obs, add_th_noise=add_th_noise,
+            obsdata = obs_simulate.add_noise(obs, add_th_noise=add_th_noise,
                                        opacitycal=opacitycal, ampcal=ampcal, phasecal=phasecal, 
                                        stabilize_scan_phase=stabilize_scan_phase,
                                        stabilize_scan_amp=stabilize_scan_amp,
@@ -1219,7 +1213,7 @@ class Movie(object):
 
     def observe(self, array, tint, tadv, tstart, tstop, bw, repeat=False,
                 mjd=None, timetype='UTC', polrep_obs=None,
-                elevmin=ehc.ELEV_LOW, elevmax=ehc.ELEV_HIGH,
+                elevmin=ehtim.const_def.ELEV_LOW, elevmax=ehtim.const_def.ELEV_HIGH,
                 ttype='nfft', fft_pad_factor=2, fix_theta_GMST=False,
                 sgrscat=False, add_th_noise=True,
                 jones=False, inv_jones=False,
@@ -1227,9 +1221,9 @@ class Movie(object):
                 frcal=True, dcal=True, rlgaincal=True,
                 stabilize_scan_phase=False, stabilize_scan_amp=False,
                 neggains=False,
-                tau=ehc.TAUDEF, taup=ehc.GAINPDEF,
-                gain_offset=ehc.GAINPDEF, gainp=ehc.GAINPDEF, 
-                dterm_offset=ehc.DTERMPDEF,
+                tau=ehtim.const_def.TAUDEF, taup=ehtim.const_def.GAINPDEF,
+                gain_offset=ehtim.const_def.GAINPDEF, gainp=ehtim.const_def.GAINPDEF, 
+                dterm_offset=ehtim.const_def.DTERMPDEF,
                 caltable_path=None, seed=False, sigmat=None, verbose=True):
         """Generate baselines from an array object and observe the movie.
 
@@ -1331,9 +1325,9 @@ class Movie(object):
                     frcal=True, dcal=True, rlgaincal=True,
                     stabilize_scan_phase=False, stabilize_scan_amp=False,
                     neggains=False,
-                    tau=ehc.TAUDEF, taup=ehc.GAINPDEF,
-                    gain_offset=ehc.GAINPDEF, gainp=ehc.GAINPDEF, 
-                    dterm_offset=ehc.DTERMPDEF,
+                    tau=ehtim.const_def.TAUDEF, taup=ehtim.const_def.GAINPDEF,
+                    gain_offset=ehtim.const_def.GAINPDEF, gainp=ehtim.const_def.GAINPDEF, 
+                    dterm_offset=ehtim.const_def.DTERMPDEF,
                     caltable_path=None, seed=False, sigmat=None, verbose=True):
         """Generate baselines from a vex file and observe the movie.
 
@@ -1429,7 +1423,7 @@ class Movie(object):
                 continue
 
             t_start = vex.sched[i_scan]['start_hr']
-            t_stop = t_start + vex.sched[i_scan]['scan'][0]['scan_sec']/3600.0 - ehc.EP
+            t_stop = t_start + vex.sched[i_scan]['scan'][0]['scan_sec']/3600.0 - ehtim.const_def.EP
 
             mjd = vex.sched[i_scan]['mjd_floor']
             obs = subarray.obsdata(movie.ra, movie.dec, movie.rf, vex.bw_hz,
@@ -1586,8 +1580,8 @@ class Movie(object):
         else:
             plt_im.set_clim([np.log(maxi/dynamic_range), np.log(maxi)])
 
-        xticks = obsh.ticks(self.xdim, self.psize/ehc.RADPERAS/1e-6)
-        yticks = obsh.ticks(self.ydim, self.psize/ehc.RADPERAS/1e-6)
+        xticks = obs_helpers.ticks(self.xdim, self.psize/ehtim.const_def.RADPERAS/1e-6)
+        yticks = obs_helpers.ticks(self.ydim, self.psize/ehtim.const_def.RADPERAS/1e-6)
         plt.xticks(xticks[0], xticks[1])
         plt.yticks(yticks[0], yticks[1])
         plt.xlabel(r'Relative RA ($\mu$as)')
@@ -1753,7 +1747,7 @@ def export_multipanel_mp4(input_list, out='movie.mp4', start_hr=None, stop_hr=No
     ani.save(out, writer=writer, dpi=dpi)
 
 
-def merge_im_list(imlist, framedur=-1, interp=ehc.INTERP_DEFAULT, bounds_error=ehc.BOUNDS_ERROR):
+def merge_im_list(imlist, framedur=-1, interp=ehtim.const_def.INTERP_DEFAULT, bounds_error=ehtim.const_def.BOUNDS_ERROR):
     """Merge a list of image objects into a movie object.
 
        Args:
@@ -1857,7 +1851,7 @@ def merge_im_list(imlist, framedur=-1, interp=ehc.INTERP_DEFAULT, bounds_error=e
 
 
 def load_hdf5(file_name,
-              pulse=ehc.PULSE_DEFAULT, interp=ehc.INTERP_DEFAULT, bounds_error=ehc.BOUNDS_ERROR):
+              pulse=ehtim.const_def.PULSE_DEFAULT, interp=ehtim.const_def.INTERP_DEFAULT, bounds_error=ehtim.const_def.BOUNDS_ERROR):
     """Read in a movie from an hdf5 file and create a Movie object.
 
        Args:
@@ -1875,9 +1869,9 @@ def load_hdf5(file_name,
 
 
 def load_txt(basename, nframes,
-             framedur=-1, pulse=ehc.PULSE_DEFAULT,
+             framedur=-1, pulse=ehtim.const_def.PULSE_DEFAULT,
              polrep='stokes', pol_prim=None,  zero_pol=True,
-             interp=ehc.INTERP_DEFAULT, bounds_error=ehc.BOUNDS_ERROR):
+             interp=ehtim.const_def.INTERP_DEFAULT, bounds_error=ehtim.const_def.BOUNDS_ERROR):
     """Read in a movie from text files and create a Movie object.
 
        Args:
@@ -1903,9 +1897,9 @@ def load_txt(basename, nframes,
 
 
 def load_fits(basename, nframes,
-              framedur=-1, pulse=ehc.PULSE_DEFAULT,
+              framedur=-1, pulse=ehtim.const_def.PULSE_DEFAULT,
               polrep='stokes', pol_prim=None,  zero_pol=True,
-              interp=ehc.INTERP_DEFAULT, bounds_error=ehc.BOUNDS_ERROR):
+              interp=ehtim.const_def.INTERP_DEFAULT, bounds_error=ehtim.const_def.BOUNDS_ERROR):
     """Read in a movie from fits files and create a Movie object.
 
        Args:
