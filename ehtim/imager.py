@@ -1,39 +1,34 @@
-# imager.py
-# a general interferometric imager class
-#
-#    Copyright (C) 2018 Andrew Chael
-#
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+a general interferometric imager class
 
-from __future__ import division
-from __future__ import print_function
+Copyright (C) 2022 Andrew Chael
 
-from builtins import str
-from builtins import range
-from builtins import object
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
+import sys
 import copy
 import time
 import numpy as np
-import scipy.optimize as opt
-
-import ehtim.scattering as so
-import ehtim.imaging.imager_utils as imutils
-import ehtim.imaging.pol_imager_utils as polutils
-import ehtim.imaging.multifreq_imager_utils as mfutils
+import scipy.optimize
+sys.path.extend(["ehtim"])
+from ehtim import scattering
+from ehtim.imaging import imager_utils
+from ehtim.imaging import pol_imager_utils
+from ehtim.imaging import multifreq_imager_utils
 import ehtim.image
-import ehtim.const_def as ehc
+import ehtim.const_def
 
 MAXIT = 200  # number of iterations
 NHIST = 50   # number of steps to store for hessian approx
@@ -62,8 +57,8 @@ POL_PRIM_SOLVE = "amp_phase"  # this means we solve for polarization in the m, c
 POL_WHICH_SOLVE = (0, 1, 1)   # this means that pol imaging solves for m & chi (not I), for now
 MF_WHICH_SOLVE = (1, 1, 0)    # this means that mf imaging solves for I0 and alpha (not beta), for now
 
-REGPARAMS_DEFAULT = {'major':50*ehc.RADPERUAS,
-                     'minor':50*ehc.RADPERUAS,
+REGPARAMS_DEFAULT = {'major':50*ehtim.const_def.RADPERUAS,
+                     'minor':50*ehtim.const_def.RADPERUAS,
                      'PA':0.,
                      'alpha_A':1.0,
                      'epsilon_tv':0.0}
@@ -274,10 +269,10 @@ class Imager(object):
 
         tstart = time.time()
         if grads:
-            res = opt.minimize(self.objfunc, self._xinit, method='L-BFGS-B', jac=self.objgrad,
+            res = scipy.optimize.minimize(self.objfunc, self._xinit, method='L-BFGS-B', jac=self.objgrad,
                                options=optdict, callback=callback_func)
         else:
-            res = opt.minimize(self.objfunc, self._xinit, method='L-BFGS-B',
+            res = scipy.optimize.minimize(self.objfunc, self._xinit, method='L-BFGS-B',
                                options=optdict, callback=callback_func)
         tstop = time.time()
 
@@ -286,19 +281,19 @@ class Imager(object):
         self.tmpout = res.x
 
         if self.pol_next == 'P':
-            out = polutils.unpack_poltuple(out, self._xtuple, self._nimage, (0,1,1))
+            out = pol_imager_utils.unpack_poltuple(out, self._xtuple, self._nimage, (0,1,1))
             if 'mcv' in self.transform_next:
-                out = polutils.mcv(out)
+                out = pol_imager_utils.mcv(out)
 
         elif self.pol_next == 'IP' or self.pol_next == 'IQU':
-            out = polutils.unpack_poltuple(out, self._xtuple, self._nimage, (1,1,1))
+            out = pol_imager_utils.unpack_poltuple(out, self._xtuple, self._nimage, (1,1,1))
             if 'mcv' in self.transform_next:
-                out = polutils.mcv(out)
+                out = pol_imager_utils.mcv(out)
             if 'log' in self.transform_next:
                 out[0] = np.exp(out[0])
 
         elif self.mf_next:
-            out = mfutils.unpack_mftuple(out, self._xtuple, self._nimage, MF_WHICH_SOLVE)
+            out = multifreq_imager_utils.unpack_mftuple(out, self._xtuple, self._nimage, MF_WHICH_SOLVE)
             if 'log' in self.transform_next:
                 out[0] = np.exp(out[0])
 
@@ -330,20 +325,20 @@ class Imager(object):
         # Embed image
         if self.pol_next == 'P' or self.pol_next == 'IP' or self.pol_next == 'IQU':
             if np.any(np.invert(self._embed_mask)):
-                out = polutils.embed_pol(out, self._embed_mask)
+                out = pol_imager_utils.embed_pol(out, self._embed_mask)
             iimage_out = out[0]
-            qimage_out = polutils.make_q_image(out, POL_PRIM_SOLVE)
-            uimage_out = polutils.make_u_image(out, POL_PRIM_SOLVE)
+            qimage_out = pol_imager_utils.make_q_image(out, POL_PRIM_SOLVE)
+            uimage_out = pol_imager_utils.make_u_image(out, POL_PRIM_SOLVE)
 
         elif self.mf_next:
             if np.any(np.invert(self._embed_mask)):
-                out = mfutils.embed_mf(out, self._embed_mask)
+                out = multifreq_imager_utils.embed_mf(out, self._embed_mask)
             iimage_out = out[0]
             specind_out = out[1]
             curv_out = out[2]
         else:
             if np.any(np.invert(self._embed_mask)):
-                out = imutils.embed(out, self._embed_mask)
+                out = imager_utils.embed(out, self._embed_mask)
             iimage_out = out
 
         # Return image
@@ -849,7 +844,7 @@ class Imager(object):
             # Change of variables
             if 'mcv' in self.transform_next:
                 if self.pol_next == 'P' or self.pol_next == 'IP' or self.pol_next == 'IQU':
-                    self._xtuple = polutils.mcv_r(self._inittuple)
+                    self._xtuple = pol_imager_utils.mcv_r(self._inittuple)
             else:
                 raise Exception("Polarimetric imaging only works with mcv transform!")
 
@@ -863,7 +858,7 @@ class Imager(object):
             else: 
                 pol_which_solve = (1,1,1) # solve simultaneously for full lin pol field
 
-            self._xinit = polutils.pack_poltuple(self._xtuple, pol_which_solve)
+            self._xinit = pol_imager_utils.pack_poltuple(self._xtuple, pol_which_solve)
 
         # Set prior & initial image vectors for multifrequency imaging
         elif self.mf_next:
@@ -907,7 +902,7 @@ class Imager(object):
                 self._xtuple = self.inittuple
 
             # Pack into single vector
-            self._xinit = mfutils.pack_mftuple(self._xtuple, MF_WHICH_SOLVE)
+            self._xinit = multifreq_imager_utils.pack_mftuple(self._xtuple, MF_WHICH_SOLVE)
 
         # Set prior & initial image vectors for single stokes or RR/LL imaging
         else:
@@ -950,7 +945,7 @@ class Imager(object):
                     # Polarimetric data products
                     if dname in DATATERMS_POL:
                     #if self.pol_next == 'P':
-                        tup = polutils.polchisqdata(obs, self.prior_next, self._embed_mask, dname,
+                        tup = pol_imager_utils.polchisqdata(obs, self.prior_next, self._embed_mask, dname,
                                                     ttype=self._ttype,
                                                     fft_pad_factor=self._fft_pad_factor,
                                                     conv_func=self._fft_conv_func,
@@ -964,7 +959,7 @@ class Imager(object):
                             raise Exception("cannot use dterm %s with pol=P - did you mean to use pol=IP?")
                         else:
                             pol_next = self.pol_next 
-                        tup = imutils.chisqdata(obs, self.prior_next, self._embed_mask, dname,
+                        tup = imager_utils.chisqdata(obs, self.prior_next, self._embed_mask, dname,
                                                 pol=pol_next, maxset=self.maxset_next,
                                                 debias=self.debias_next,
                                                 snrcut=self.snrcut_next[dname],
@@ -991,10 +986,10 @@ class Imager(object):
         N = self.prior_next.xdim
 
         if self.scattering_model is None:
-            self.scattering_model = so.ScatteringModel()
+            self.scattering_model = scattering.ScatteringModel()
 
         # First some preliminary definitions
-        wavelength = ehc.C/self.obs_next.rf*100.0  # Observing wavelength [cm]
+        wavelength = ehtim.const_def.C/self.obs_next.rf*100.0  # Observing wavelength [cm]
         N = self.prior_next.xdim
 
         # Field of view, in cm, at the scattering screen
@@ -1003,7 +998,7 @@ class Imager(object):
         # The ensemble-average convolution kernel and its gradients
         self._ea_ker = self.scattering_model.Ensemble_Average_Kernel(
             self.prior_next, wavelength_cm=wavelength)
-        ea_ker_gradient = so.Wrapped_Gradient(self._ea_ker/(FOV/N))
+        ea_ker_gradient = scattering.Wrapped_Gradient(self._ea_ker/(FOV/N))
         self._ea_ker_gradient_x = -ea_ker_gradient[1]
         self._ea_ker_gradient_y = -ea_ker_gradient[0]
 
@@ -1037,7 +1032,7 @@ class Imager(object):
 
                 if dname in DATATERMS_POL:
                 #if self.pol_next == 'P':
-                    chi2 = polutils.polchisq(imcur, A, data, sigma, dname,
+                    chi2 = pol_imager_utils.polchisq(imcur, A, data, sigma, dname,
                                              ttype=self._ttype, mask=self._embed_mask,
                                              pol_prim=POL_PRIM_SOLVE)
 
@@ -1045,13 +1040,13 @@ class Imager(object):
                     # If multifrequency imaging, get the image at the right frequency
                     if self.mf_next:
                         logfreqratio = self._logfreqratio_list[i]
-                        imcur_nu = mfutils.imvec_at_freq(imcur, logfreqratio)
+                        imcur_nu = multifreq_imager_utils.imvec_at_freq(imcur, logfreqratio)
                     elif self.pol_next == 'IP' or self.pol_next == 'IQU':
                         imcur_nu = imcur[0]
                     else:
                         imcur_nu = imcur
 
-                    chi2 = imutils.chisq(imcur_nu, A, data, sigma, dname,
+                    chi2 = imager_utils.chisq(imcur_nu, A, data, sigma, dname,
                                          ttype=self._ttype, mask=self._embed_mask)
 
                 else:
@@ -1079,7 +1074,7 @@ class Imager(object):
                 # Polarimetric data products
                 if dname in DATATERMS_POL:
                 #if self.pol_next == 'P':
-                    chi2grad = polutils.polchisqgrad(imcur, A, data, sigma, dname,
+                    chi2grad = pol_imager_utils.polchisqgrad(imcur, A, data, sigma, dname,
                                                      ttype=self._ttype, mask=self._embed_mask,
                                                      pol_prim=POL_PRIM_SOLVE,
                                                      pol_solve=POL_WHICH_SOLVE)
@@ -1090,20 +1085,20 @@ class Imager(object):
                     if self.mf_next:
                         logfreqratio = self._logfreqratio_list[i]
                         imref = imcur[0]
-                        imcur_nu = mfutils.imvec_at_freq(imcur, logfreqratio)
+                        imcur_nu = multifreq_imager_utils.imvec_at_freq(imcur, logfreqratio)
                     elif self.pol_next == 'IP' or self.pol_next == 'IQU':
                         imcur_nu = imcur[0]
                     else:
                         imcur_nu = imcur
 
-                    chi2grad = imutils.chisqgrad(imcur_nu, A, data, sigma, dname,
+                    chi2grad = imager_utils.chisqgrad(imcur_nu, A, data, sigma, dname,
                                                  ttype=self._ttype, mask=self._embed_mask)
 
                     # If multifrequency imaging,
                     # transform the image gradients for all the solved quantities
                     if self.mf_next:
                         logfreqratio = self._logfreqratio_list[i]
-                        chi2grad = mfutils.mf_all_chisqgrads(
+                        chi2grad = multifreq_imager_utils.mf_all_chisqgrads(
                             chi2grad, imcur_nu, imref, logfreqratio)
 
                     # If imaging polarization simultaneously, bundle the gradient properly
@@ -1125,7 +1120,7 @@ class Imager(object):
             # Polarimetric regularizer
             #if self.pol_next == 'P':
             if regname in REGULARIZERS_POL: 
-                reg = polutils.polregularizer(imcur, self._embed_mask, self.flux_next,
+                reg = pol_imager_utils.polregularizer(imcur, self._embed_mask, self.flux_next,
                                               self.prior_next.xdim, self.prior_next.ydim,
                                               self.prior_next.psize, regname,
                                               norm_reg=self.norm_reg, beam_size=self.beam_size,
@@ -1134,14 +1129,14 @@ class Imager(object):
             # Multifrequency regularizer
             elif self.mf_next:
                 if regname in REGULARIZERS:
-                    reg = imutils.regularizer(imcur[0], self.priortuple[0], self._embed_mask,
+                    reg = imager_utils.regularizer(imcur[0], self.priortuple[0], self._embed_mask,
                                               self.flux_next, self.prior_next.xdim,
                                               self.prior_next.ydim, self.prior_next.psize,
                                               regname,
                                               norm_reg=self.norm_reg, beam_size=self.beam_size,
                                               **self.regparams)
                 elif regname in REGULARIZERS_SPECIND:
-                    reg = mfutils.regularizer_mf(imcur[1], self.priortuple[1], self._embed_mask,
+                    reg = multifreq_imager_utils.regularizer_mf(imcur[1], self.priortuple[1], self._embed_mask,
                                                  self.flux_next, self.prior_next.xdim,
                                                  self.prior_next.ydim, self.prior_next.psize,
                                                  regname,
@@ -1149,7 +1144,7 @@ class Imager(object):
                                                  **self.regparams)
 
                 elif regname in REGULARIZERS_CURV:
-                    reg = mfutils.regularizer_mf(imcur[2], self.priortuple[2], self._embed_mask,
+                    reg = multifreq_imager_utils.regularizer_mf(imcur[2], self.priortuple[2], self._embed_mask,
                                                  self.flux_next, self.prior_next.xdim,
                                                  self.prior_next.ydim, self.prior_next.psize,
                                                  regname,
@@ -1163,7 +1158,7 @@ class Imager(object):
                 else: 
                     imcur0 = imcur
 
-                reg = imutils.regularizer(imcur0, self._nprior, self._embed_mask,
+                reg = imager_utils.regularizer(imcur0, self._nprior, self._embed_mask,
                                           self.flux_next, self.prior_next.xdim,
                                           self.prior_next.ydim, self.prior_next.psize,
                                           regname,
@@ -1186,7 +1181,7 @@ class Imager(object):
             # Polarimetric regularizer
             #if self.pol_next == 'P':
             if regname in REGULARIZERS_POL: 
-                reg = polutils.polregularizergrad(imcur, self._embed_mask, self.flux_next,
+                reg = pol_imager_utils.polregularizergrad(imcur, self._embed_mask, self.flux_next,
                                                   self.prior_next.xdim, self.prior_next.ydim,
                                                   self.prior_next.psize, regname,
                                                   norm_reg=self.norm_reg, beam_size=self.beam_size,
@@ -1197,7 +1192,7 @@ class Imager(object):
             elif self.mf_next:
 
                 if regname in REGULARIZERS:
-                    reg = imutils.regularizergrad(imcur[0], self.priortuple[0],
+                    reg = imager_utils.regularizergrad(imcur[0], self.priortuple[0],
                                                   self._embed_mask, self.flux_next,
                                                   self.prior_next.xdim, self.prior_next.ydim,
                                                   self.prior_next.psize, regname,
@@ -1207,7 +1202,7 @@ class Imager(object):
                     reg = np.array((reg, np.zeros(self._nimage), np.zeros(self._nimage)))
 
                 elif regname in REGULARIZERS_SPECIND:
-                    reg = mfutils.regularizergrad_mf(imcur[1], self.priortuple[1],
+                    reg = multifreq_imager_utils.regularizergrad_mf(imcur[1], self.priortuple[1],
                                                      self._embed_mask, self.flux_next,
                                                      self.prior_next.xdim, self.prior_next.ydim,
                                                      self.prior_next.psize, regname,
@@ -1217,7 +1212,7 @@ class Imager(object):
                     reg = np.array((np.zeros(self._nimage), reg, np.zeros(self._nimage)))
 
                 elif regname in REGULARIZERS_CURV:
-                    reg = mfutils.regularizergrad_mf(imcur[2], self.priortuple[2],
+                    reg = multifreq_imager_utils.regularizergrad_mf(imcur[2], self.priortuple[2],
                                                      self._embed_mask, self.flux_next,
                                                      self.prior_next.xdim, self.prior_next.ydim,
                                                      self.prior_next.psize, regname,
@@ -1232,7 +1227,7 @@ class Imager(object):
                     imcur0 = imcur[0]
                 else: 
                     imcur0 = imcur
-                reg = imutils.regularizergrad(imcur0, self._nprior, self._embed_mask, self.flux_next,
+                reg = imager_utils.regularizergrad(imcur0, self._nprior, self._embed_mask, self.flux_next,
                                               self.prior_next.xdim, self.prior_next.ydim,
                                               self.prior_next.psize,
                                               regname,
@@ -1257,16 +1252,16 @@ class Imager(object):
                 pol_which_solve = (0,1,1) # solve only for polarization, fix I 
             else: 
                 pol_which_solve = (1,1,1) # solve simultaneously for full lin pol field
-            imcur = polutils.unpack_poltuple(imvec, self._xtuple, self._nimage, pol_which_solve)
+            imcur = pol_imager_utils.unpack_poltuple(imvec, self._xtuple, self._nimage, pol_which_solve)
         elif self.mf_next:
-            imcur = mfutils.unpack_mftuple(imvec, self._xtuple, self._nimage, MF_WHICH_SOLVE)
+            imcur = multifreq_imager_utils.unpack_mftuple(imvec, self._xtuple, self._nimage, MF_WHICH_SOLVE)
         else:
             imcur = imvec
 
         # Image change of variables
         if 'mcv' in self.transform_next:
             if self.pol_next == 'P' or self.pol_next == 'IP' or self.pol_next == 'IQU':
-                imcur = polutils.mcv(imcur)
+                imcur = pol_imager_utils.mcv(imcur)
 
         if 'log' in self.transform_next:
             if self.pol_next == 'P' or self.pol_next == 'IP' or self.pol_next == 'IQU':
@@ -1315,9 +1310,9 @@ class Imager(object):
                 pol_which_solve = (0,1,1) # solve only for polarization, fix I 
             else: 
                 pol_which_solve = (1,1,1) # solve simultaneously for full lin pol field
-            imcur = polutils.unpack_poltuple(imvec, self._xtuple, self._nimage, pol_which_solve)
+            imcur = pol_imager_utils.unpack_poltuple(imvec, self._xtuple, self._nimage, pol_which_solve)
         elif self.mf_next:
-            imcur = mfutils.unpack_mftuple(imvec, self._xtuple, self._nimage, MF_WHICH_SOLVE)
+            imcur = multifreq_imager_utils.unpack_mftuple(imvec, self._xtuple, self._nimage, MF_WHICH_SOLVE)
         else:
             imcur = imvec
 
@@ -1325,7 +1320,7 @@ class Imager(object):
         if 'mcv' in self.transform_next:
             if self.pol_next == 'P' or self.pol_next == 'IP' or self.pol_next == 'IQU':
                 cvcur = imcur.copy()
-                imcur = polutils.mcv(imcur)
+                imcur = pol_imager_utils.mcv(imcur)
 
         if 'log' in self.transform_next:
             if self.pol_next == 'P' or self.pol_next == 'IP' or self.pol_next == 'IQU':
@@ -1371,7 +1366,7 @@ class Imager(object):
         # Chain rule term for change of variables
         if 'mcv' in self.transform_next:
             if self.pol_next == 'P' or self.pol_next == 'IP' or self.pol_next == 'IQU':
-                grad *= polutils.mchain(cvcur) # note: mchain is only not 1 for 'm' variables
+                grad *= pol_imager_utils.mchain(cvcur) # note: mchain is only not 1 for 'm' variables
 
         if 'log' in self.transform_next:
             if self.pol_next == 'P' or self.pol_next == 'IP' or self.pol_next == 'IQU':
@@ -1385,11 +1380,11 @@ class Imager(object):
         if self.pol_next == 'P' or self.pol_next == 'IP' or self.pol_next == 'IQU':
             if self.pol_next == 'P': pol_which_solve = (0,1,1)
             else: pol_which_solve = (1,1,1)
-            grad = polutils.pack_poltuple(grad, pol_which_solve)
+            grad = pol_imager_utils.pack_poltuple(grad, pol_which_solve)
 
         # repack gradient for multifrequency imaging
         elif self.mf_next:
-            grad = mfutils.pack_mftuple(grad, MF_WHICH_SOLVE)
+            grad = multifreq_imager_utils.pack_mftuple(grad, MF_WHICH_SOLVE)
 
         return grad
 
@@ -1402,10 +1397,10 @@ class Imager(object):
                 if self.pol_next == 'P' or self.pol_next == 'IP' or self.pol_next == 'IQU':
                     if self.pol_next == 'P': pol_which_solve = (0,1,1)
                     else: pol_which_solve = (1,1,1)
-                    imcur = polutils.unpack_poltuple(
+                    imcur = pol_imager_utils.unpack_poltuple(
                         imvec, self._xtuple, self._nimage, pol_which_solve)
                 elif self.mf_next:
-                    imcur = mfutils.unpack_mftuple(
+                    imcur = multifreq_imager_utils.unpack_mftuple(
                         imvec, self._xtuple, self._nimage, MF_WHICH_SOLVE)
                 else:
                     imcur = imvec
@@ -1414,7 +1409,7 @@ class Imager(object):
 
                 if 'mcv' in self.transform_next:
                     if self.pol_next == 'P' or self.pol_next == 'IP' or self.pol_next == 'IQU':
-                        imcur = polutils.mcv(imcur)
+                        imcur = pol_imager_utils.mcv(imcur)
 
                 if 'log' in self.transform_next:
                     if self.pol_next == 'P' or self.pol_next == 'IP' or self.pol_next == 'IQU':
@@ -1456,8 +1451,8 @@ class Imager(object):
                 # Embed and plot the image
                 if self.pol_next == 'P' or self.pol_next == 'IP' or self.pol_next == 'IQU':
                     if np.any(np.invert(self._embed_mask)):
-                        imcur = polutils.embed_pol(imcur, self._embed_mask)
-                    polutils.plot_m(imcur, self.prior_next, self._nit, chi2_term_dict, **kwargs)
+                        imcur = pol_imager_utils.embed_pol(imcur, self._embed_mask)
+                    pol_imager_utils.plot_m(imcur, self.prior_next, self._nit, chi2_term_dict, **kwargs)
 
                 else:
                     if self.mf_next:
@@ -1465,9 +1460,9 @@ class Imager(object):
                     else:
                         implot = imcur
                     if np.any(np.invert(self._embed_mask)):
-                        implot = imutils.embed(implot, self._embed_mask)
+                        implot = imager_utils.embed(implot, self._embed_mask)
 
-                    imutils.plot_i(implot, self.prior_next, self._nit,
+                    imager_utils.plot_i(implot, self.prior_next, self._nit,
                                    chi2_term_dict, pol=self.pol_next, **kwargs)
 
                 if self._nit == 0:
@@ -1492,7 +1487,7 @@ class Imager(object):
                                source=self.prior_next.source, mjd=self.prior_next.mjd)
 
         # The scattered image vector
-        screen = so.MakeEpsilonScreenFromList(EpsilonList, N)
+        screen = scattering.MakeEpsilonScreenFromList(EpsilonList, N)
         scatt_im = self.scattering_model.Scatter(IM, Epsilon_Screen=screen,
                                                  ea_ker=self._ea_ker, sqrtQ=self._sqrtQ,
                                                  Linearized_Approximation=True)
@@ -1528,7 +1523,7 @@ class Imager(object):
     def objgrad_scattering(self, minvec):
         """Current stochastic optics objective function gradient
         """
-        wavelength = ehc.C/self.obs_next.rf*100.0  # Observing wavelength [cm]
+        wavelength = ehtim.const_def.C/self.obs_next.rf*100.0  # Observing wavelength [cm]
         wavelengthbar = wavelength/(2.0*np.pi)     # lambda/(2pi) [cm]
         N = self.prior_next.xdim
 
@@ -1547,26 +1542,26 @@ class Imager(object):
                                source=self.prior_next.source, mjd=self.prior_next.mjd)
 
         # The scattered image vector
-        screen = so.MakeEpsilonScreenFromList(EpsilonList, N)
+        screen = scattering.MakeEpsilonScreenFromList(EpsilonList, N)
         scatt_im = self.scattering_model.Scatter(IM, Epsilon_Screen=screen,
                                                  ea_ker=self._ea_ker, sqrtQ=self._sqrtQ,
                                                  Linearized_Approximation=True)
         scatt_im = scatt_im.imvec
 
         EA_Image = self.scattering_model.Ensemble_Average_Blur(IM, ker=self._ea_ker)
-        EA_Gradient = so.Wrapped_Gradient((EA_Image.imvec/(FOV/N)).reshape(N, N))
+        EA_Gradient = scattering.Wrapped_Gradient((EA_Image.imvec/(FOV/N)).reshape(N, N))
 
         # The gradient signs don't actually matter, but let's make them match intuition
         # (i.e., right to left, bottom to top)
         EA_Gradient_x = -EA_Gradient[1]
         EA_Gradient_y = -EA_Gradient[0]
 
-        Epsilon_Screen = so.MakeEpsilonScreenFromList(EpsilonList, N)
+        Epsilon_Screen = scattering.MakeEpsilonScreenFromList(EpsilonList, N)
         phi_scr = self.scattering_model.MakePhaseScreen(Epsilon_Screen, IM,
                                                         obs_frequency_Hz=self.obs_next.rf,
                                                         sqrtQ_init=self._sqrtQ)
         phi = phi_scr.imvec.reshape((N, N))
-        phi_Gradient = so.Wrapped_Gradient(phi/(FOV/N))
+        phi_Gradient = scattering.Wrapped_Gradient(phi/(FOV/N))
         phi_Gradient_x = -phi_Gradient[1]
         phi_Gradient_y = -phi_Gradient[0]
 
@@ -1585,16 +1580,16 @@ class Imager(object):
                 dgauss_dIa = gaussterm.reshape((N, N))
 
                 # Now the chain rule factor to get the gauss gradient wrt the unscattered image
-                gx = so.Wrapped_Convolve(
+                gx = scattering.Wrapped_Convolve(
                     self._ea_ker_gradient_x[::-1, ::-1], phi_Gradient_x * (dgauss_dIa))
                 gx = (rF**2.0 * gx).flatten()
 
-                gy = so.Wrapped_Convolve(
+                gy = scattering.Wrapped_Convolve(
                     self._ea_ker_gradient_y[::-1, ::-1], phi_Gradient_y * (dgauss_dIa))
                 gy = (rF**2.0 * gy).flatten()
 
                 # Now we add the gradient for the unscattered image
-                regterm += so.Wrapped_Convolve(self._ea_ker[::-1, ::-1],
+                regterm += scattering.Wrapped_Convolve(self._ea_ker[::-1, ::-1],
                                                (dgauss_dIa)).flatten() + gx + gy
 
             else:
@@ -1609,13 +1604,13 @@ class Imager(object):
         dchisq_dIa = datterm.reshape((N, N))
 
         # Now the chain rule factor to get the chi^2 gradient wrt the unscattered image
-        gx = so.Wrapped_Convolve(self._ea_ker_gradient_x[::-1, ::-1], phi_Gradient_x * (dchisq_dIa))
+        gx = scattering.Wrapped_Convolve(self._ea_ker_gradient_x[::-1, ::-1], phi_Gradient_x * (dchisq_dIa))
         gx = (rF**2.0 * gx).flatten()
 
-        gy = so.Wrapped_Convolve(self._ea_ker_gradient_y[::-1, ::-1], phi_Gradient_y * (dchisq_dIa))
+        gy = scattering.Wrapped_Convolve(self._ea_ker_gradient_y[::-1, ::-1], phi_Gradient_y * (dchisq_dIa))
         gy = (rF**2.0 * gy).flatten()
 
-        chisq_grad_im = so.Wrapped_Convolve(
+        chisq_grad_im = scattering.Wrapped_Convolve(
             self._ea_ker[::-1, ::-1], (dchisq_dIa)).flatten() + gx + gy
 
         # Gradient of the data chi^2 wrt to the epsilon screen
@@ -1634,7 +1629,7 @@ class Imager(object):
             s = 0
             grad_term = (wavelengthbar/FOV*self._sqrtQ[s][t] *
                          2.0*np.cos(2.0*np.pi/N*(ell_mat*s + m_mat*t))/(FOV/N))
-            grad_term = so.Wrapped_Gradient(grad_term)
+            grad_term = scattering.Wrapped_Gradient(grad_term)
             grad_term_x = -grad_term[1]
             grad_term_y = -grad_term[0]
 
@@ -1648,7 +1643,7 @@ class Imager(object):
             for t in range(N):
                 grad_term = (wavelengthbar/FOV*self._sqrtQ[s][t] *
                              2.0*np.cos(2.0*np.pi/N*(ell_mat*s + m_mat*t))/(FOV/N))
-                grad_term = so.Wrapped_Gradient(grad_term)
+                grad_term = scattering.Wrapped_Gradient(grad_term)
                 grad_term_x = -grad_term[1]
                 grad_term_y = -grad_term[0]
 
@@ -1662,7 +1657,7 @@ class Imager(object):
             s = 0
             grad_term = (-wavelengthbar/FOV*self._sqrtQ[s][t] *
                          2.0*np.sin(2.0*np.pi/N*(ell_mat*s + m_mat*t))/(FOV/N))
-            grad_term = so.Wrapped_Gradient(grad_term)
+            grad_term = scattering.Wrapped_Gradient(grad_term)
             grad_term_x = -grad_term[1]
             grad_term_y = -grad_term[0]
 
@@ -1676,7 +1671,7 @@ class Imager(object):
             for t in range(N):
                 grad_term = (-wavelengthbar/FOV*self._sqrtQ[s][t] *
                              2.0*np.sin(2.0*np.pi/N*(ell_mat*s + m_mat*t))/(FOV/N))
-                grad_term = so.Wrapped_Gradient(grad_term)
+                grad_term = scattering.Wrapped_Gradient(grad_term)
                 grad_term_x = -grad_term[1]
                 grad_term_y = -grad_term[0]
 
@@ -1713,7 +1708,7 @@ class Imager(object):
                                        source=self.prior_next.source, mjd=self.prior_next.mjd)
 
                 # The scattered image vector
-                screen = so.MakeEpsilonScreenFromList(EpsilonList, N)
+                screen = scattering.MakeEpsilonScreenFromList(EpsilonList, N)
                 scatt_im = self.scattering_model.Scatter(IM, Epsilon_Screen=screen,
                                                          ea_ker=self._ea_ker, sqrtQ=self._sqrtQ,
                                                          Linearized_Approximation=True)
@@ -1780,11 +1775,11 @@ class Imager(object):
         optdict = {'maxiter': self.maxit_next, 'ftol': self.stop_next, 'maxcor': NHIST}
         tstart = time.time()
         if grads:
-            res = opt.minimize(self.objfunc_scattering, self._xinit, method='L-BFGS-B',
+            res = scipy.optimize.minimize(self.objfunc_scattering, self._xinit, method='L-BFGS-B',
                                jac=self.objgrad_scattering, options=optdict,
                                callback=self.plotcur_scattering)
         else:
-            res = opt.minimize(self.objfunc_scattering, self._xinit, method='L-BFGS-B',
+            res = scipy.optimize.minimize(self.objfunc_scattering, self._xinit, method='L-BFGS-B',
                                options=optdict, callback=self.plotcur_scattering)
         tstop = time.time()
 
@@ -1794,14 +1789,14 @@ class Imager(object):
             out = np.exp(out)
         if np.any(np.invert(self._embed_mask)):
             raise Exception("Embedding is not currently implemented!")
-            out = imutils.embed(out, self._embed_mask)
+            out = imager_utils.embed(out, self._embed_mask)
 
         outim = ehtim.image.Image(out.reshape(N, N), self.prior_next.psize,
                                   self.prior_next.ra, self.prior_next.dec, self.prior_next.pa,
                                   rf=self.prior_next.rf, source=self.prior_next.source,
                                   mjd=self.prior_next.mjd, pulse=self.prior_next.pulse)
         outep = res.x[N**2:]
-        screen = so.MakeEpsilonScreenFromList(outep, N)
+        screen = scattering.MakeEpsilonScreenFromList(outep, N)
         outscatt = self.scattering_model.Scatter(outim,
                                                  Epsilon_Screen=screen,
                                                  ea_ker=self._ea_ker, sqrtQ=self._sqrtQ,
