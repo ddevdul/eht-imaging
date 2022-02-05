@@ -1,28 +1,25 @@
-# Michael Johnson, 2/15/2017
-# See http://adsabs.harvard.edu/abs/2016ApJ...833...74J for details about this module
+"""
+Michael Johnson, 2/15/2017
+See http://adsabs.harvard.edu/abs/2016ApJ...833...74J for details about this module
+"""
 
-from __future__ import print_function
-from builtins import range
-from builtins import object
-import numpy as np
-import scipy.signal
-import scipy.special as sps
-import scipy.integrate as integrate
-from scipy.optimize import minimize
-
-import matplotlib.pyplot as plt
-
-import ehtim.image as image
-import ehtim.movie as movie
-import ehtim.obsdata as obsdata
-from ehtim.observing.obs_helpers import *
-from ehtim.const_def import * #Note: C is m/s rather than cm/s.
-
-from multiprocessing import cpu_count
-from multiprocessing import Pool
-
+import sys
 import math
 import cmath
+import numpy as np
+import scipy.signal
+import scipy.special
+from scipy import integrate
+from scipy.optimize import minimize
+import matplotlib.pyplot as plt
+sys.path.extend(["../observing", "../"])
+import image
+import movie
+import obsdata
+from observing import obs_helpers # import *
+import const_def # import * #Note: C is m/s rather than cm/s.
+from multiprocessing import cpu_count
+from multiprocessing import Pool
 
 ################################################################################
 # The class ScatteringModel enscompasses a generic scattering model, determined by the power spectrum Q and phase structure function Dphi
@@ -85,8 +82,8 @@ class ScatteringModel(object):
         self.scatt_alpha = scatt_alpha
 
         FWHM_fac = (2.0 * np.log(2.0))**0.5/np.pi
-        self.Qbar = 2.0/sps.gamma((2.0 - self.scatt_alpha)/2.0) * (self.r_in**2*(1.0 + M)/(FWHM_fac*(self.wavelength_reference/(2.0*np.pi))**2) )**2 * ( (theta_maj_mas_ref**2 + theta_min_mas_ref**2)*(1.0/1000.0/3600.0*np.pi/180.0)**2)
-        self.C_scatt_0 = (self.wavelength_reference/(2.0*np.pi))**2 * self.Qbar*sps.gamma(1.0 - self.scatt_alpha/2.0)/(8.0*np.pi**2*self.r_in**2)
+        self.Qbar = 2.0/scipy.special.gamma((2.0 - self.scatt_alpha)/2.0) * (self.r_in**2*(1.0 + M)/(FWHM_fac*(self.wavelength_reference/(2.0*np.pi))**2) )**2 * ( (theta_maj_mas_ref**2 + theta_min_mas_ref**2)*(1.0/1000.0/3600.0*np.pi/180.0)**2)
+        self.C_scatt_0 = (self.wavelength_reference/(2.0*np.pi))**2 * self.Qbar*scipy.special.gamma(1.0 - self.scatt_alpha/2.0)/(8.0*np.pi**2*self.r_in**2)
         A = theta_maj_mas_ref/theta_min_mas_ref # Anisotropy, >=1, as lambda->infinity 
         self.phi0 = (90 - self.POS_ANG) * np.pi/180.0
 
@@ -98,10 +95,10 @@ class ScatteringModel(object):
 
         if model == 'von_Mises':
             def avM_Anisotropy(kzeta):                
-                return np.abs( (kzeta*sps.i0(kzeta)/sps.i1(kzeta) - 1.0)**0.5 - A )
+                return np.abs( (kzeta*scipy.special.i0(kzeta)/scipy.special.i1(kzeta) - 1.0)**0.5 - A )
 
             self.kzeta = minimize(avM_Anisotropy, A**2, method='nelder-mead', options={'xtol': 1e-8, 'disp': False}).x
-            self.P_phi_prefac = 1.0/(2.0*np.pi*sps.i0(self.kzeta))  
+            self.P_phi_prefac = 1.0/(2.0*np.pi*scipy.special.i0(self.kzeta))  
         elif model == 'boxcar':
             def boxcar_Anisotropy(kzeta):                
                 return np.abs( np.sin(np.pi/(1.0 + kzeta))/(np.pi/(1.0 + kzeta)) - (theta_maj_mas_ref**2 - theta_min_mas_ref**2)/(theta_maj_mas_ref**2 + theta_min_mas_ref**2) )       
@@ -110,17 +107,17 @@ class ScatteringModel(object):
             self.P_phi_prefac = (1.0 + self.kzeta)/(2.0*np.pi)   
         elif model == 'dipole':
             def dipole_Anisotropy(kzeta):                
-                return np.abs( sps.hyp2f1((self.scatt_alpha + 2.0)/2.0, 0.5, 2.0, -kzeta)/sps.hyp2f1((self.scatt_alpha + 2.0)/2.0, 1.5, 2.0, -kzeta) - A**2 )  
+                return np.abs( scipy.special.hyp2f1((self.scatt_alpha + 2.0)/2.0, 0.5, 2.0, -kzeta)/scipy.special.hyp2f1((self.scatt_alpha + 2.0)/2.0, 1.5, 2.0, -kzeta) - A**2 )  
 
             self.kzeta = minimize(dipole_Anisotropy, A, method='nelder-mead', options={'xtol': 1e-8, 'disp': False}).x
-            self.P_phi_prefac = 1.0/(2.0*np.pi*sps.hyp2f1((self.scatt_alpha + 2.0)/2.0, 0.5, 1.0, -self.kzeta))       
+            self.P_phi_prefac = 1.0/(2.0*np.pi*scipy.special.hyp2f1((self.scatt_alpha + 2.0)/2.0, 0.5, 1.0, -self.kzeta))       
         else:
             print("Scattering Model Not Recognized!")
 
         # More parameters for the approximate phase structure function 
         int_maj = integrate.quad(lambda phi_q: np.abs( np.cos( self.phi0 - phi_q ) )**self.scatt_alpha * self.P_phi(phi_q), 0, 2.0*np.pi, limit=250)[0]  
         int_min = integrate.quad(lambda phi_q: np.abs( np.sin( self.phi0 - phi_q ) )**self.scatt_alpha * self.P_phi(phi_q), 0, 2.0*np.pi, limit=250)[0]      
-        B_prefac = self.C_scatt_0 * 2.0**(2.0 - self.scatt_alpha) * np.pi**0.5/(self.scatt_alpha * sps.gamma((self.scatt_alpha + 1.0)/2.0))
+        B_prefac = self.C_scatt_0 * 2.0**(2.0 - self.scatt_alpha) * np.pi**0.5/(self.scatt_alpha * scipy.special.gamma((self.scatt_alpha + 1.0)/2.0))
         self.Bmaj_0 = B_prefac*int_maj
         self.Bmin_0 = B_prefac*int_min
 
@@ -159,7 +156,7 @@ class ScatteringModel(object):
     def dDphi_dz(self, r, phi, phi_q, wavelength):
         """differential contribution to the phase structure function
         """
-        return 4.0 * (wavelength/self.wavelength_reference)**2 * self.C_scatt_0/self.scatt_alpha * (sps.hyp1f1(-self.scatt_alpha/2.0, 0.5, -r**2/(4.0*self.r_in**2)*np.cos(phi - phi_q)**2) - 1.0)
+        return 4.0 * (wavelength/self.wavelength_reference)**2 * self.C_scatt_0/self.scatt_alpha * (scipy.special.hyp1f1(-self.scatt_alpha/2.0, 0.5, -r**2/(4.0*self.r_in**2)*np.cos(phi - phi_q)**2) - 1.0)
 
     def Dphi_exact(self, x, y, wavelength_cm):
         r = (x**2 + y**2)**0.5
@@ -238,7 +235,7 @@ class ScatteringModel(object):
             """
 
         if wavelength_cm == None:
-            wavelength_cm = C/Reference_Image.rf*100.0 #Observing wavelength [cm]
+            wavelength_cm = const_def.C/Reference_Image.rf*100.0 #Observing wavelength [cm]
 
         uvlist = np.fft.fftfreq(Reference_Image.xdim)/Reference_Image.psize # assume square kernel.  FIXME: create ulist and vlist, and construct u_grid and v_grid with the correct dimension
         if use_approximate_form == True:
@@ -283,13 +280,13 @@ class ScatteringModel(object):
         # The pre-computed kernel can optionally be specified (ker)
 
         if wavelength_cm == None:
-            wavelength_cm = C/im.rf*100.0 #Observing wavelength [cm]
+            wavelength_cm = const_def.C/im.rf*100.0 #Observing wavelength [cm]
 
         if ker is None:
             ker = self.Ensemble_Average_Kernel(im, wavelength_cm, use_approximate_form)
 
         Iim = Wrapped_Convolve((im.imvec).reshape(im.ydim, im.xdim), ker)
-        out = image.Image(Iim, im.psize, im.ra, im.dec, rf=C/(wavelength_cm/100.0), source=im.source, mjd=im.mjd, pulse=im.pulse)
+        out = image.Image(Iim, im.psize, im.ra, im.dec, rf=const_def.C/(wavelength_cm/100.0), source=im.source, mjd=im.mjd, pulse=im.pulse)
         if len(im.qvec):
             Qim = Wrapped_Convolve((im.qvec).reshape(im.ydim, im.xdim), ker)
             Uim = Wrapped_Convolve((im.uvec).reshape(im.ydim, im.xdim), ker)
@@ -326,7 +323,7 @@ class ScatteringModel(object):
 
         # divide visibilities by the scattering kernel
         for i in range(len(vis)):
-            ker = self.Ensemble_Average_Kernel_Visibility(u[i], v[i], wavelength_cm = C/obs.rf*100.0, use_approximate_form=use_approximate_form)
+            ker = self.Ensemble_Average_Kernel_Visibility(u[i], v[i], wavelength_cm = const_def.C/obs.rf*100.0, use_approximate_form=use_approximate_form)
             vis[i] = vis[i] / ker
             qvis[i] = qvis[i] / ker
             uvis[i] = uvis[i] / ker
@@ -373,7 +370,7 @@ class ScatteringModel(object):
         if obs_frequency_Hz == 0.0:
             obs_frequency_Hz = Reference_Image.rf
 
-        wavelength = C/obs_frequency_Hz*100.0 #Observing wavelength [cm]
+        wavelength = const_def.C/obs_frequency_Hz*100.0 #Observing wavelength [cm]
         wavelengthbar = wavelength/(2.0*np.pi) #lambda/(2pi) [cm]
 
         #Derived parameters
@@ -439,7 +436,7 @@ class ScatteringModel(object):
         if obs_frequency_Hz == 0.0:
             obs_frequency_Hz = Unscattered_Image.rf
 
-        wavelength = C/obs_frequency_Hz*100.0 #Observing wavelength [cm]
+        wavelength = const_def.C/obs_frequency_Hz*100.0 #Observing wavelength [cm]
         wavelengthbar = wavelength/(2.0*np.pi) #lambda/(2pi) [cm]
 
         #Derived parameters
@@ -772,8 +769,8 @@ def plot_scatt(im_unscatt, im_ea, im_scatt, im_phase, Prior, nit, chi2, ipynb=Fa
     # Unscattered Image
     plt.subplot(141)
     plt.imshow(im_unscatt.reshape(Prior.ydim, Prior.xdim), cmap=plt.get_cmap('afmhot'), interpolation='gaussian', vmin=0)
-    xticks = ticks(Prior.xdim, Prior.psize/RADPERAS/1e-6)
-    yticks = ticks(Prior.ydim, Prior.psize/RADPERAS/1e-6)
+    xticks = obs_helpers.ticks(Prior.xdim, Prior.psize/const_def.RADPERAS/1e-6)
+    yticks = obs_helpers.ticks(Prior.ydim, Prior.psize/const_def.RADPERAS/1e-6)
     plt.xticks(xticks[0], xticks[1])
     plt.yticks(yticks[0], yticks[1])
     plt.xlabel('Relative RA ($\mu$as)')
@@ -783,8 +780,8 @@ def plot_scatt(im_unscatt, im_ea, im_scatt, im_phase, Prior, nit, chi2, ipynb=Fa
     # Ensemble Average
     plt.subplot(142)
     plt.imshow(im_ea.reshape(Prior.ydim, Prior.xdim), cmap=plt.get_cmap('afmhot'), interpolation='gaussian', vmin=0)
-    xticks = ticks(Prior.xdim, Prior.psize/RADPERAS/1e-6)
-    yticks = ticks(Prior.ydim, Prior.psize/RADPERAS/1e-6)
+    xticks = obs_helpers.ticks(Prior.xdim, Prior.psize/const_def.RADPERAS/1e-6)
+    yticks = obs_helpers.ticks(Prior.ydim, Prior.psize/const_def.RADPERAS/1e-6)
     plt.xticks(xticks[0], xticks[1])
     plt.yticks(yticks[0], yticks[1])
     plt.xlabel('Relative RA ($\mu$as)')
@@ -794,8 +791,8 @@ def plot_scatt(im_unscatt, im_ea, im_scatt, im_phase, Prior, nit, chi2, ipynb=Fa
     # Scattered
     plt.subplot(143)
     plt.imshow(im_scatt.reshape(Prior.ydim, Prior.xdim), cmap=plt.get_cmap('afmhot'), interpolation='gaussian', vmin=0)
-    xticks = ticks(Prior.xdim, Prior.psize/RADPERAS/1e-6)
-    yticks = ticks(Prior.ydim, Prior.psize/RADPERAS/1e-6)
+    xticks = obs_helpers.ticks(Prior.xdim, Prior.psize/const_def.RADPERAS/1e-6)
+    yticks = obs_helpers.ticks(Prior.ydim, Prior.psize/const_def.RADPERAS/1e-6)
     plt.xticks(xticks[0], xticks[1])
     plt.yticks(yticks[0], yticks[1])
     plt.xlabel('Relative RA ($\mu$as)')
@@ -805,8 +802,8 @@ def plot_scatt(im_unscatt, im_ea, im_scatt, im_phase, Prior, nit, chi2, ipynb=Fa
     # Phase
     plt.subplot(144)
     plt.imshow(im_phase.reshape(Prior.ydim, Prior.xdim), cmap=plt.get_cmap('afmhot'), interpolation='gaussian')
-    xticks = ticks(Prior.xdim, Prior.psize/RADPERAS/1e-6)
-    yticks = ticks(Prior.ydim, Prior.psize/RADPERAS/1e-6)
+    xticks = obs_helpers.ticks(Prior.xdim, Prior.psize/const_def.RADPERAS/1e-6)
+    yticks = obs_helpers.ticks(Prior.ydim, Prior.psize/const_def.RADPERAS/1e-6)
     plt.xticks(xticks[0], xticks[1])
     plt.yticks(yticks[0], yticks[1])
     plt.xlabel('Relative RA ($\mu$as)')
