@@ -18,12 +18,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import numpy
-from ehtim.observing import obs_simulate  # as simobs
-from ehtim.io import save, load # ehtim.io.load ehtim.io.save
-from ehtim import const_def # as ehc
-from ehtim.obsdata import Obsdata
-from ehtim.io.save import save_array_txt
-from ehtim.io.load import load_array_txt
+import sys
+sys.path.extend(["./observing", "./io"])
+from observing import obs_simulate
+from obsdata import Obsdata
+from io.save import save_array_txt
+from io.load import load_array_txt
 
 
 class Array:
@@ -94,7 +94,9 @@ class Array:
         """
         obsarr = obs_simulate.make_uvpoints(self, **kwargs)
         uniquetimes = numpy.sort(numpy.unique(obsarr['time']))
-        scans = numpy.array([[time - 0.5 * kwargs["tadv"], time + 0.5 * kwargs["tadv"]] for time in uniquetimes])
+        scans = numpy.array([[
+            time - 0.5 * kwargs["tadv"], time + 0.5 * kwargs["tadv"]]
+            for time in uniquetimes])
         source = str(kwargs["ra"]) + ":" + str(kwargs["dec"])
         obs = Obsdata(obsarr, self.tarr, source=source,
                                     ampcal=True, phasecal=True, 
@@ -102,7 +104,7 @@ class Array:
                                     scantable=scans, **kwargs)
         return obs
 
-    def make_subarray(self, sites: list) -> Array:
+    def make_subarray(self, sites: list):
         """
         Make a subarray from the Array object array that only includes the sites listed.
 
@@ -116,7 +118,7 @@ class Array:
         subarr = Array(self.tarr[mask], ephem=self.ephem)
         return subarr
 
-    def save_txt(self, fname:str) -> None:
+    def save_txt(self, fname: str) -> None:
         """Save the array data in a text file.
 
            Args:
