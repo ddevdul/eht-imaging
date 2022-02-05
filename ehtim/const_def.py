@@ -1,33 +1,28 @@
-# const_def.py
-# useful constants and definitions
-#
-#    Copyright (C) 2018 Andrew Chael
-#
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+useful constants and definitions
 
-from __future__ import division
-from __future__ import print_function
+Copyright (C) 2022 Andrew Chael
 
-from builtins import str
-from builtins import range
-from builtins import object
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-import matplotlib as mpl
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
+import sys
+import matplotlib
+sys.path.extend(["ehtim"])
 from ehtim.observing.pulses import trianglePulse2D
 
-mpl.rc('font', **{'family': 'serif', 'size': 12})
+matplotlib.rc('font', **{'family': 'serif', 'size': 12})
 
 EP = 1.0e-10
 C = 299792458.0
