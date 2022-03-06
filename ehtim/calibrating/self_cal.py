@@ -24,7 +24,6 @@ import numpy as np
 import const_def
 import warnings
 import scipy.optimize
-sys.path.extend(["../"])
 import obsdata
 import parloop
 from observing import obs_helpers

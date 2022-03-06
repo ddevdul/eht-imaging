@@ -18,8 +18,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 
-import sys
-sys.path.extend(["../"])
 import numpy as np
 import itertools
 import const_def

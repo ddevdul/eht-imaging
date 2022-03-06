@@ -22,7 +22,6 @@ import time
 import numpy as np
 import scipy.optimize
 import matplotlib.pyplot as plt
-sys.path.extend(["../imaging", "../observing", "../"])
 from imaging import imager_utils
 from observing import obs_simulate
 import const_def

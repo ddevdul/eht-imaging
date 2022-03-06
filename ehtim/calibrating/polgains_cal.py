@@ -22,7 +22,6 @@ import time
 import copy
 import numpy as np
 import scipy.optimize
-sys.path.extend(["../", "./observing"])
 import obsdata
 import parloop
 from observing import obs_helpers
