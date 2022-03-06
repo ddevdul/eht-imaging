@@ -25,7 +25,6 @@ import h5py
 import datetime
 import numpy as np
 from  astropy.io import fits
-sys.path.extend(["../", "../io"])
 import obsdata
 import image
 import array

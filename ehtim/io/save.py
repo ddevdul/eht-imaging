@@ -22,7 +22,6 @@ import h5py
 import datetime
 import numpy as np
 from astropy.io import fits # as fits
-sys.path.extend(["../","../io"])
 import io
 from astropy.time import Time
 import const_def
