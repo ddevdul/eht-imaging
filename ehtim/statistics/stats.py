@@ -1,32 +1,25 @@
-# stats.py
-# variety of statistical functions useful for 
-#
-#    Copyright (C) 2018 Maciek Wielgus
-#
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+Variety of statistical functions useful for 
 
-from __future__ import division
-from __future__ import print_function
-from builtins import str
-from builtins import map
-from builtins import range
+Copyright (C) 2018 Maciek Wielgus
 
-import numpy as np
-import numpy.random as npr
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
 import sys
-
-from ehtim.const_def import *
+import numpy as np
+import const_def
 
 def circular_mean(theta, unit='deg'):
     '''circular mean for averaging angular quantities
@@ -210,7 +203,7 @@ def bootstrap(data, statistic, num_samples=int(1e3), alpha='1sig',wrapping_varia
         m=0
     data = data-m
     n = len(data)
-    idx = npr.randint(0, n, (num_samples, n))
+    idx = np.random.randint(0, n, (num_samples, n))
     samples = data[idx]
     for cou in range(num_samples):
         stat[cou] = statistic(samples[cou,:])
@@ -317,8 +310,8 @@ def compare_TV(obs,obsref,snr_cut=2.,output=''):
             cprel / cpmed: dictionary of triangle relative differences in mean TV / median of triangle relative differences in mean TV
             lcarel / lcamed: dictionary of quadrangle relative differences in mean TV / median of quadrangle relative differences in mean TV
         """
-    amptv, cptv, lcatv = dicts_TV(obs,snr_cut=snr_cut)
-    ampref, cpref, lcaref = dicts_TV(obsref,snr_cut=snr_cut)
+    amptv, cptv, lcatv = const_def.dicts_TV(obs,snr_cut=snr_cut)
+    ampref, cpref, lcaref = const_def.dicts_TV(obsref,snr_cut=snr_cut)
     
     cprel = {key: (cptv[key] - cpref[key])/cpref[key] for key in cptv.keys() if key in set(cpref.keys())}
     amprel = {key: (amptv[key] - ampref[key])/ampref[key] for key in amptv.keys() if key in set(ampref.keys())}
