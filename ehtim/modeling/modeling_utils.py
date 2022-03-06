@@ -28,14 +28,13 @@ import time
 import numpy as np
 import scipy.optimize
 import scipy.special
-sys.path.extend(["../", "../observing", "../statistics"])
 import obsdata
 import image
 import model
 import caltable
-import const_def # import *
-from observing import obs_helpers # import *
-from statistics import dataframes # import *
+import const_def
+from observing import obs_helpers
+from statistics import dataframes
 
 
 # Constants & Definitions
