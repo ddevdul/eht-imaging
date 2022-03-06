@@ -1,7 +1,6 @@
 import sys
 import image
 import numpy as np
-sys.path.extend(["../", "../observings"])
 from observing import obs_helpers
 
 

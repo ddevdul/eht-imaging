@@ -12,7 +12,6 @@ import sys
 import scipy
 import copy
 import numpy as np
-sys.path.extend(["../", "../observing"])
 import image
 import observing.pulses
 from observing import obs_helpers

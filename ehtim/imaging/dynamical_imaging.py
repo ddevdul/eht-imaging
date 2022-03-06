@@ -32,7 +32,6 @@ import scipy.optimize
 from scipy.ndimage import filters
 import scipy.signal
 import matplotlib.pyplot as plt
-sys.path.extend(["../", "../observing", "../imaging", "../scattering"])
 import const_def # import * # Note: C is m/s rather than cm/s.
 from observing import obs_helpers # import *
 import obsdata

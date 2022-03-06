@@ -24,7 +24,6 @@ import numpy
 import matplotlib.pyplot as plt
 from numpy.polynomial import polynomial
 import image
-sys.path.extend(["../", "../observing", "../imaging"])
 import const_def
 from observing import obs_helpers
 from imaging import imager_utils

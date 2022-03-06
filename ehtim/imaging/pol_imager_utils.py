@@ -24,7 +24,6 @@ import time
 import numpy as np
 import scipy.optimize
 import matplotlib.pyplot as plt
-sys.path.extend(["../", "../observing"])
 import image
 import const_def # import *
 from observing import obs_helpers # import *
