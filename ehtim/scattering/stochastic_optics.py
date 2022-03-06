@@ -12,7 +12,6 @@ import scipy.special
 from scipy import integrate
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
-sys.path.extend(["../observing", "../"])
 import image
 import movie
 import obsdata
