@@ -23,7 +23,6 @@ import matplotlib.pyplot as plt
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from itertools import cycle
 import networkx
-sys.path.extend(["../"])
 import const_def
 
 

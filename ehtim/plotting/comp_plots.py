@@ -23,7 +23,6 @@ import numpy as np
 from numpy import matlib
 import matplotlib.pyplot as plt
 import itertools
-sys.path.extend(["../"])
 from obsdata import merge_obs
 import const_def
 

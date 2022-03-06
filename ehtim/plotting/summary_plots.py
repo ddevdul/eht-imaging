@@ -25,7 +25,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.backends.backend_pdf import PdfPages
-sys.path.extend(["../"])
 from comp_plots import (plotall_obs_compare, plot_bl_obs_compare,
 plot_cphase_obs_compare, plot_camp_obs_compare)
 from calibrating.self_cal import self_cal
