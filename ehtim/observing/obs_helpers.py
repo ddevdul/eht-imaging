@@ -19,13 +19,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys
 import copy
-import ephem
+# import ephem
 from astropy import time, coordinates
 import numpy
 import itertools
 from scipy import ndimage
 from scipy.spatial import distance
-sys.path.extend(["../"])
 import const_def
 import warnings
 try:
