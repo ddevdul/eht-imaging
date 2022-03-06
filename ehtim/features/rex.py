@@ -30,7 +30,6 @@ import parloop
 from astropy.io import fits
 from astropy.stats import median_absolute_deviation
 from ehtim.image import load_image
-sys.path.extend(["../imaging"])
 from imaging import dynamical_imaging
 import const_def
 
