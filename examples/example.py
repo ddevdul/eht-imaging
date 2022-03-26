@@ -5,20 +5,23 @@ The matplotlib windows may not open/close properly
 if you run this directly as a script
 """
 
+import os
 import sys
 import time
 import numpy as np
 import matplotlib.pyplot as plt
-sys.path.extedn(["../"])
-import ehtim
-# from ehtim.calibrating import self_cal
+import const_def
+import image
+import array
+import imager_utils
+
 
 def main():
     plt.close('all')
     ttype = 'direct'
     # Load the image and the array
-    im = ehtim.image.load_txt('../models/avery_sgra_eofn.txt')
-    eht = ehtim.array.load_txt('../arrays/EHT2017.txt')
+    im = image.load_txt('../models/avery_sgra_eofn.txt')
+    eht = array.load_txt('../arrays/EHT2017.txt')
     # Look at the image
     im.display()
     # Observe the image
@@ -69,27 +72,27 @@ def main():
     npix = 128
     fov = 1*im.fovx()
     zbl = im.total_flux() # total flux
-    prior_fwhm = 200*ehtim.RADPERUAS # Gaussian size in microarcssec
-    emptyprior = ehtim.image.make_square(obs, npix, fov)
+    prior_fwhm = 200 * const_def.RADPERUAS # Gaussian size in microarcssec
+    emptyprior = image.make_square(obs, npix, fov)
     flatprior = emptyprior.add_flat(zbl)
     gaussprior = emptyprior.add_gauss(zbl, (prior_fwhm, prior_fwhm, 0, 0, 0))
     # Image total flux with bispectrum
     flux = zbl
     tt = time.time()
-    out  = ehtim.imager_func(obs, gaussprior, gaussprior, flux,
+    out  = imager_utils.imager_func(obs, gaussprior, gaussprior, flux,
                         d1='bs', s1='simple',
                         alpha_s1=1, alpha_d1=100,
                         alpha_flux=100, alpha_cm=50,
                         maxit=100, ttype=ttype, show_updates=False)
     # Blur the image with a circular beam and image again to help convergance
     out = out.blur_circ(res)
-    out = ehtim.imager_func(obs, out, out, flux,
+    out = imager_utils.imager_func(obs, out, out, flux,
                     d1='bs', s1='tv',
                     alpha_s1=1, alpha_d1=50,
                     alpha_flux=100, alpha_cm=50,
                     maxit=100,ttype=ttype, show_updates=False)
     out = out.blur_circ(res/2.0)
-    out = ehtim.imager_func(obs, out, out, flux,
+    out = imager_utils.imager_func(obs, out, out, flux,
                     d1='bs', s1='tv',
                     alpha_s1=1, alpha_d1=10,
                     alpha_flux=100, alpha_cm=50,
