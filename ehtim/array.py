@@ -18,12 +18,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import numpy
-import sys
-sys.path.extend(["./observing", "./io"])
 from observing import obs_simulate
 from obsdata import Obsdata
-from io.save import save_array_txt
-from io.load import load_array_txt
+from io_.save import save_array_txt
+from io_.load import load_array_txt
 
 
 class Array:
@@ -54,7 +52,7 @@ class Array:
                 except NameError:
                     raise Exception(f'No ephemeris for site {sitename} !')
                 if elen != 3:
-                    raise Exception('Wrong ephemeris format for site {sitename} !')
+                    raise Exception(f'Wrong ephemeris format for site {sitename} !')
             array_indicies[self.tarr[i]['site']] = i
 
     def listbls(self) -> numpy.array[list]:
