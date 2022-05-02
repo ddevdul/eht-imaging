@@ -3,7 +3,6 @@ Example script for running data domain clean
 """
 
 import sys
-sys.path.extend(["../ehtim"])
 import ehtim
 from ehtim.imaging import clean # import *
 

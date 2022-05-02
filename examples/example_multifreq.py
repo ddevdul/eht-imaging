@@ -6,7 +6,6 @@ RIAF model with a constant spectral index
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
-sys.path.extend(["../", "../ehtim"])
 import ehtim
 
 def main():

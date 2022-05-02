@@ -2,7 +2,6 @@ import sys
 import numpy as np
 import skimage.io
 import matplotlib.pyplot as plt
-sys.path.extend(["../ehtim"])
 from ehtim import diagnostics # as ed
 
 

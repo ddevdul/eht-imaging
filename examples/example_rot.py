@@ -4,13 +4,12 @@
 import sys
 import matplotlib.pyplot as plt
 import numpy as np
-sys.path.extend(["../", "../ehtim"])
-import ehtim as eh
+import ehtim #as eh
 
 def main():
     # Load the image and the array
-    im = eh.image.load_txt('../models/avery_sgra_eofn.txt')
-    eht = eh.array.load_txt('../arrays/EHT2017.txt')
+    im = ehtim.image.load_txt('../models/avery_sgra_eofn.txt')
+    eht = ehtim.array.load_txt('../arrays/EHT2017.txt')
     # Look at the image
     im.display()
     # Observe the image
@@ -74,20 +73,20 @@ def main():
     npix = 32
     fov = 1*im.fovx()
     zbl = im.total_flux() # total flux
-    prior_fwhm = 200*eh.RADPERUAS # Gaussian size in microarcssec
-    emptyprior = eh.image.make_square(obs, npix, fov)
+    prior_fwhm = 200*ehtim.RADPERUAS # Gaussian size in microarcssec
+    emptyprior = ehtim.image.make_square(obs, npix, fov)
     flatprior = emptyprior.add_flat(zbl)
     gaussprior = emptyprior.add_gauss(zbl, (prior_fwhm, prior_fwhm, 0, 0, 0))
     # Image total flux with bispectrum
     flux = zbl
-    out  = eh.imager_func(
+    out  = ehtim.imager_func(
         obs, gaussprior, gaussprior, flux,
         d1='vis', s1='simple',
         alpha_s1=1, alpha_d1=100,
         alpha_flux=100, alpha_cm=50,
         maxit=100, ttype='nfft'
         )
-    out  = eh.imager_func(
+    out  = ehtim.imager_func(
         obs, gaussprior, gaussprior, flux,
         d1='vis', s1='simple',
         alpha_s1=1, alpha_d1=100,
@@ -97,7 +96,7 @@ def main():
     # Blur the image with a circular beam
     #  and image again to help convergance
     out = out.blur_circ(res)
-    out = eh.imager_func(
+    out = ehtim.imager_func(
         obs, out, out, flux,
         d1='vis', s1='tv',
         alpha_s1=1, alpha_d1=50,
@@ -105,7 +104,7 @@ def main():
         maxit=100,ttype='nfft'
         )
     out = out.blur_circ(res/2.0)
-    out = eh.imager_func(
+    out = ehtim.imager_func(
         obs, out, out, flux,
         d1='vis', s1='tv',
         alpha_s1=1, alpha_d1=10,
@@ -115,14 +114,14 @@ def main():
     # Self - calibrate and image with vis amplitudes
     obs_sc = ehtim.calibrating.self_cal.self_cal(obs, out)
     out_sc = out.blur_circ(res)
-    out_sc = eh.imager_func(obs_sc, out_sc, out_sc, flux,
+    out_sc = ehtim.imager_func(obs_sc, out_sc, out_sc, flux,
                     d1='vis', s1='simple',
                     alpha_s1=1, alpha_d1=100,
                     alpha_flux=100, alpha_cm=50,
                     maxit=50,ttype='nfft')
     # Compare the visibility amplitudes to the data
     out = out_sc
-    eh.comp_plots.plotall_obs_im_compare(
+    ehtim.comp_plots.plotall_obs_im_compare(
         obs, out,'uvdist',
         'amp', clist=['b','m'],
         conj=True

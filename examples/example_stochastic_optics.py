@@ -7,7 +7,6 @@ or after installing with setuptools
 """
 import sys
 import numpy as np
-sys.path.extend(["../"])
 import ehtim
 
 def main():

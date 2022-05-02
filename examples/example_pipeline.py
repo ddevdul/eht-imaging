@@ -1,5 +1,4 @@
 import sys
-sys.path.extend(["../"])
 import ehtim
 import ruamel.yaml as yaml
 

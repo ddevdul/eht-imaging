@@ -8,7 +8,6 @@ if you run this directly as a script.
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
-sys.path.extend(["../ehtim", "../"])
 import ehtim
 from ehtim.calibrating import self_cal
 

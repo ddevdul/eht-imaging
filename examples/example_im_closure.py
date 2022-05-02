@@ -5,7 +5,6 @@ Example of imaging directly with closure quantities stored in obsdata object.
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
-sys.path.extend(["../", "../ehtim"])
 import ehtim
 
 def main():

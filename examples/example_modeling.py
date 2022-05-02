@@ -7,7 +7,6 @@ if you run this directly as a script
 
 import sys
 import numpy as np
-sys.path.extend(["../", "../ehtim"])
 import ehtim # as eh
 import matplotlib.pyplot as plt
 from dynesty import plotting

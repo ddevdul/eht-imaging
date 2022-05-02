@@ -15,7 +15,6 @@ import copy
 import scipy
 import numpy as np
 import matplotlib.pyplot as plt
-sys.path.extend(["../"])
 import ehtim
 from ehtim.imaging import starwarps
 

@@ -1,6 +1,5 @@
 import sys
-sys.path.extend(["../ehtim"])
-import ehtim # as eh
+import ehtim
 
 def main():
     # Load the image and the array
