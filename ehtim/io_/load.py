@@ -31,7 +31,7 @@ import array
 import movie
 import vex
 import observing
-import io.oifits
+import io_.oifits
 import const_def
 import warnings
 
@@ -1401,7 +1401,7 @@ def load_obs_oifits(filename, flux=1.0):
     print('Warning: load_obs_oifits does NOT currently support polarimetric data!')
 
     # open oifits file and get visibilities
-    oidata = io.oifits.open(filename)
+    oidata = io_.oifits.open(filename)
     vis_data = oidata.vis
 
     # get source info

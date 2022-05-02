@@ -4,7 +4,7 @@ Author: Katie Bouman
 """
 
 import numpy as np
-import io.oifits
+import io_.oifits
 import const_def
 
 
@@ -17,11 +17,11 @@ def writeOIFITS(filename, RA, DEC, frequency, bandWidth, intTime,
     flagVis = False  # do not flag any data
 
     # open a new oifits file
-    data = io.oifits.oifits()
+    data = io_.oifits.oifits()
 
     # put in the target information - RA and DEC should be in degrees
     name = 'TARGET_NAME'
-    data.target = np.append(data.target, io.oifits.OI_TARGET(name, RA, DEC, veltyp='LSR'))
+    data.target = np.append(data.target, io_.oifits.OI_TARGET(name, RA, DEC, veltyp='LSR'))
 
     # calulate wavelength and bandpass
     wavelength = speedoflight/frequency
@@ -30,7 +30,7 @@ def writeOIFITS(filename, RA, DEC, frequency, bandWidth, intTime,
     bandpass = bandhigh-bandlow
 
 # put in the wavelength information - only using a single frequency
-    data.wavelength['WAVELENGTH_NAME'] = io.oifits.OI_WAVELENGTH(
+    data.wavelength['WAVELENGTH_NAME'] = io_.oifits.OI_WAVELENGTH(
         wavelength, eff_band=bandpass)
 
     # put in information about the telescope stations in the array
@@ -38,7 +38,7 @@ def writeOIFITS(filename, RA, DEC, frequency, bandWidth, intTime,
     for i in range(0, len(antennaNames)):
         stations.append((antennaNames[i], antennaNames[i], i+1,
                          antennaDiam[i], [antennaX[i], antennaY[i], antennaZ[i]]))
-    data.array['ARRAY_NAME'] = io.oifits.OI_ARRAY('GEOCENTRIC', [0, 0, 0], stations)
+    data.array['ARRAY_NAME'] = io_.oifits.OI_ARRAY('GEOCENTRIC', [0, 0, 0], stations)
 
     print('Warning: set cflux and cfluxerr = False ' +
           'because otherwise problems were being generated ' +
@@ -49,7 +49,7 @@ def writeOIFITS(filename, RA, DEC, frequency, bandWidth, intTime,
     for i in range(0, len(u)):
         station_curr = (data.array['ARRAY_NAME'].station[int(ant1[i] - 1)],
                         data.array['ARRAY_NAME'].station[int(ant2[i] - 1)])
-        currVis = io.oifits.OI_VIS(timeobs[i], intTime, visamp[i], visamperr[i],
+        currVis = io_.oifits.OI_VIS(timeobs[i], intTime, visamp[i], visamperr[i],
                                          visphi[i], visphierr[i], flagVis,
                                          u[i]*wavelength, v[i]*wavelength,
                                          data.wavelength['WAVELENGTH_NAME'], data.target[0],
@@ -62,7 +62,7 @@ def writeOIFITS(filename, RA, DEC, frequency, bandWidth, intTime,
         station_curr = (data.array['ARRAY_NAME'].station[int(antOrder[j][0] - 1)],
                         data.array['ARRAY_NAME'].station[int(antOrder[j][1] - 1)],
                         data.array['ARRAY_NAME'].station[int(antOrder[j][2] - 1)])
-        currT3 = io.oifits.OI_T3(timeClosure[j], intTime, t3amp[j], t3amperr[j],
+        currT3 = io_.oifits.OI_T3(timeClosure[j], intTime, t3amp[j], t3amperr[j],
                                        t3phi[j], t3phierr[j], flagVis,
                                        uClosure[j][0]*wavelength, vClosure[j][0]*wavelength,
                                        uClosure[j][1]*wavelength, vClosure[j][1]*wavelength,
@@ -74,7 +74,7 @@ def writeOIFITS(filename, RA, DEC, frequency, bandWidth, intTime,
     for k in range(0, len(u)):
         station_curr = (data.array['ARRAY_NAME'].station[int(ant1[k] - 1)],
                         data.array['ARRAY_NAME'].station[int(ant2[k] - 1)])
-        currVis2 = io.oifits.OI_VIS2(timeobs[k], intTime, visamp[k]**2,
+        currVis2 = io_.oifits.OI_VIS2(timeobs[k], intTime, visamp[k]**2,
                                            2.0*visamp[k]*visamperr[k], flagVis,
                                            u[k]*wavelength, v[k]*wavelength,
                                            data.wavelength['WAVELENGTH_NAME'], data.target[0],
