@@ -18,7 +18,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import sys
-sys.path.extend(["./observing", "./io"])
 import copy
 import math
 import numpy as np
@@ -33,8 +32,10 @@ from scipy import ndimage
 from skimage.feature import canny
 from skimage.transform import hough_circle, hough_circle_peaks
 from observing import obs_simulate, pulses, obs_helpers
-import io
+import io_
 import const_def
+import image
+import ehtim
 
 # TODO : add time to all images
 # TODO : add arbitrary center location
@@ -3859,7 +3860,7 @@ class Image(object):
            Returns:
         """
 
-        io.save.save_im_txt(self, fname)
+        io_.save.save_im_txt(self, fname)
         return
 
     def save_fits(self, fname):
@@ -3870,7 +3871,7 @@ class Image(object):
 
            Returns:
         """
-        io.save.save_im_fits(self, fname)
+        io_.save.save_im_fits(self, fname)
         return
 
 
@@ -3948,23 +3949,23 @@ def load_image(image, display=False, aipscc=False):
 
     is_unicode = False
     try:
-        if isinstance(image, basestring):
+        if isinstance(image, str): # removed Basestring
             is_unicode = True
     except NameError:  # python 3
         pass
     if isinstance(image, str) or is_unicode:
         if image.endswith('.fits'):
-            im = io.load.load_im_fits(image, aipscc=aipscc)
+            im = io_.load.load_im_fits(image, aipscc=aipscc)
         elif image.endswith('.txt'):
-            im = io.load.load_im_txt(image)
+            im = io_.load.load_im_txt(image)
         elif image.endswith('.h5'):
-            im = io.load.load_im_hdf5(image)
+            im = io_.load.load_im_hdf5(image)
         else:
             print("Image format is not recognized. Was expecting .fits, .txt, or Image.")
             print(" Got <.{0}>. Returning False.".format(image.split('.')[-1]))
             return False
 
-    elif isinstance(image, ehtim.image.Image):
+    elif isinstance(image, image.Image):
         im = image
 
     else:
@@ -3992,7 +3993,7 @@ def load_txt(fname, polrep='stokes', pol_prim=None, pulse=const_def.PULSE_DEFAUL
             (Image): loaded image object
     """
 
-    return io.load.load_im_txt(fname, pulse=pulse, polrep=polrep,
+    return io_.load.load_im_txt(fname, pulse=pulse, polrep=polrep,
                                      pol_prim=pol_prim, zero_pol=True)
 
 
@@ -4012,5 +4013,5 @@ def load_fits(fname, aipscc=False, pulse=const_def.PULSE_DEFAULT,
            (Image): loaded image object
     """
 
-    return io.load.load_im_fits(fname, aipscc=aipscc, pulse=pulse,
+    return io_.load.load_im_fits(fname, aipscc=aipscc, pulse=pulse,
                                       polrep=polrep, pol_prim=pol_prim, zero_pol=zero_pol)
