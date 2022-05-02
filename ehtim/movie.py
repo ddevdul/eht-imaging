@@ -17,25 +17,19 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import sys
 import numpy as np
 import scipy.interpolate
 from scipy.ndimage import filters
-sys.path.extend(["ehtim"])
 import ehtim.image
 import ehtim.obsdata
 from ehtim.observing import obs_simulate
-import ehtim.io.save
-import ehtim.io.load
+import ehtim.io_.save
+import ehtim.io_.load
 import ehtim.const_def
 from ehtim.observing import obs_helpers
 
 INTERPOLATION_KINDS = ['linear', 'nearest', 'zero', 'slinear',
                        'quadratic', 'cubic', 'previous', 'next']
-
-###################################################################################################
-# Movie object
-###################################################################################################
 
 
 class Movie(object):
@@ -102,7 +96,7 @@ class Movie(object):
         if not (interp in INTERPOLATION_KINDS):
             raise Exception(
                 "'interp' must be a valid argument for scipy.interpolate.interp1d: " +
-                string.join(INTERPOLATION_KINDS))
+                "".join(INTERPOLATION_KINDS)) # TODO: Check this
 
         self.times = times
         start_hr = np.min(self.times)
@@ -1464,7 +1458,7 @@ class Movie(object):
            Returns:
         """
 
-        ehtim.io.save.save_mov_txt(self, fname)
+        ehtim.io_.save.save_mov_txt(self, fname)
 
         return
 
@@ -1477,7 +1471,7 @@ class Movie(object):
            Returns:
         """
 
-        ehtim.io.save.save_mov_fits(self, fname)
+        ehtim.io_.save.save_mov_fits(self, fname)
         return
 
     def save_hdf5(self, fname):
@@ -1489,7 +1483,7 @@ class Movie(object):
            Returns:
         """
 
-        ehtim.io.save.save_mov_hdf5(self, fname)
+        ehtim.io_.save.save_mov_hdf5(self, fname)
         return
 
     def export_mp4(self, out='movie.mp4', fps=10, dpi=120,
@@ -1864,7 +1858,7 @@ def load_hdf5(file_name,
            Movie: a Movie object
     """
 
-    return ehtim.io.load.load_movie_hdf5(file_name, pulse=pulse, interp=interp,
+    return ehtim.io_.load.load_movie_hdf5(file_name, pulse=pulse, interp=interp,
                                          bounds_error=bounds_error)
 
 
@@ -1891,7 +1885,7 @@ def load_txt(basename, nframes,
            Movie: a Movie object
     """
 
-    return ehtim.io.load.load_movie_txt(basename, nframes, framedur=framedur, pulse=pulse,
+    return ehtim.io_.load.load_movie_txt(basename, nframes, framedur=framedur, pulse=pulse,
                                         polrep=polrep, pol_prim=pol_prim, zero_pol=zero_pol,
                                         interp=interp, bounds_error=bounds_error)
 
@@ -1919,6 +1913,6 @@ def load_fits(basename, nframes,
            Movie: a Movie object
     """
 
-    return ehtim.io.load.load_movie_fits(basename, nframes, framedur=framedur, pulse=pulse,
+    return ehtim.io_.load.load_movie_fits(basename, nframes, framedur=framedur, pulse=pulse,
                                          polrep=polrep, pol_prim=pol_prim, zero_pol=zero_pol,
                                          interp=interp, bounds_error=bounds_error)
