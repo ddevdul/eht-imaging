@@ -12,6 +12,15 @@ class ArrayTestClass(TestCase):
     def test_basic(self):
         self.assertTrue(True)
     
+    def test__check_ephemeris(self):
+        pass
+    
+    def test_listbls(self):
+        pass
+    
+    def test_obsdata(self):
+        pass
+    
     @classmethod
     def tearDownClass(cls) -> None:
         pass
