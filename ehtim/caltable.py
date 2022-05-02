@@ -23,16 +23,10 @@ import copy
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.interpolate
-sys.path.extend(["ehtim/"])
-import ehtim.io.save
-import ehtim.io.load
+import ehtim.io_.save
+import ehtim.io_.load
 import ehtim.const_def
 from ehtim.observing import obs_helpers
-
-
-##################################################################################################
-# Caltable object
-##################################################################################################
 
 
 class Caltable(object):
@@ -673,7 +667,7 @@ def load_caltable(obs, datadir, sqrt_gains=False):
     tarr = obs.tarr
     array_filename = datadir + '/array.txt'
     if os.path.exists(array_filename):
-        tarr = ehtim.io.load.load_array_txt(array_filename).tarr
+        tarr = ehtim.io_.load.load_array_txt(array_filename).tarr
 
     datatables = {}
     for s in range(0, len(tarr)):
@@ -727,7 +721,7 @@ def save_caltable(caltable, obs, datadir='.', sqrt_gains=False):
     if not os.path.exists(datadir):
         os.makedirs(datadir)
 
-    ehtim.io.save.save_array_txt(obs.tarr, datadir + '/array.txt')
+    ehtim.io_.save.save_array_txt(obs.tarr, datadir + '/array.txt')
 
     datatables = caltable.data
     src = caltable.source
